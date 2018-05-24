@@ -1,6 +1,6 @@
 # ARGDIT
 ## Overview
-The Antimicrobial Resistance Gene Data Integration Toolkit (ARGDIT) consists of two main tools and three utilities for users to perform data validation and integration on antimicrobial resistance gene (ARG) databases. Basically it allows users to validate an ARG database against the coding sequence/protein information from NCBI databases, and to merge multiple validated databases into a single ARG database. It also supports re-annotating the output ARG sequences with NCBI sequence information, as well as predicting their ARG ontology class adopted from an existing ARG database (called schema database).
+The Antimicrobial Resistance Gene Data Integration Toolkit (ARGDIT) consists of two main tools and three utilities for users to perform data validation and integration on antimicrobial resistance gene (ARG) databases. Basically it allows users to validate an ARG database against the coding sequence/protein information from NCBI databases [1], and to merge multiple validated databases into a single ARG database. It also supports re-annotating the output ARG sequences with NCBI sequence information, as well as predicting their ARG ontology class adopted from an existing ARG database (called schema database).
 
 ## Main tools
 * ARG database validation tool (check_arg_db.py)
@@ -11,8 +11,15 @@ The Antimicrobial Resistance Gene Data Integration Toolkit (ARGDIT) consists of 
 * UniProt identifier to NCBI protein accession number conversion utility (convert_id_uniprot_to_ncbi.py)
 * Version diff utility for ARG database (diff_with_old_ver.py)
 
+## Sample consolidated databases
+MEGARes [2] is a consolidated ARG database created from four ARG databases: ARG-ANNOT [3], CARD [4-6], ResFinder [7], and Lahey beta-lactamase archive [8] (NCBI BioProject PRJNA305729 [1]). However, its latest version was released in Dec 2016 since which its source databases have been updated. Therefore, to demonstrate the benefit of ARGDIT in highly automating the ARG database update process, a consolidated database that emsembles MEGARes database has been created from its sources. The source databases were first validated using ARGDIT validation tool, and were then corrected manually according to the validation results. The validated databases were then merged by ARGDIT integration tool into a single database, which was subsequently annotated using NCBI information [1]. The consolidated database is available in two versions, one contains predicted MEGARes ontological classification in its annotation (ARGDIT_integrated_DB_with_annotation_and_ontology_class.fa) and one does not (ARGDIT_integrated_DB_with_annotation.fa). Both versions and their create logs can be found in the directory "sample_integrated_dbs".
+
 ## Database eligibility
-In order to use the data validation and integration tool, the ARG database (or other bacterial coding/protein sequence database) must be in FASTA format, and every FASTA sequence header must contain an NCBI nucleotide/protein accession number. Uniprot ID is an alternative for protein accession number for protein sequence database (by converting the Uniprot IDs to protein NCBI accession numbers with the conversion utility provided). ARG ontology class information, if any, must occupy at least one individual field in the sequence headers, in which all the fields are separated by the "|" symbol.
+In order to use the data validation and integration tool, the ARG database (or other bacterial coding/protein sequence database) must be
+
+1. In FASTA format
+2. Every FASTA sequence header must contain an NCBI nucleotide/protein accession number. Uniprot ID is an alternative for protein accession number for protein sequence database (by converting the Uniprot IDs to protein NCBI accession numbers with the conversion utility provided)
+3. ARG ontology class information, if any, must occupy at least one individual field in the sequence headers, in which all the fields are separated by the "|" symbol
 
 ## Important notice
 All data retrieval of NCBI databases are performed through NCBI Entrez Programming Utilities, before using ARGDIT it is very important for every user to read its [guidelines and requirements](https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen) to avoid overwhelming the NCBI servers. Based on these requirements, users are required to provide their contact email addresses (see the Installation section) so that NCBI may attempt contact before **blocking the abusing access**. Although this email address is intended for the software developers, it is more appropriate for the users to fill in their own so that they can be notified when situation happens.
@@ -148,4 +155,14 @@ This utility compares the sequence database with its previous version, and gener
 It is sometimes (but not often) possible to have incomplete data retrieval from NCBI databases due to server-side issues such as heavy workload. This means information for some nucleotide/protein accession numbers cannot be retrieved at the moment; the outcome is like these accession numbers are not present in the NCBI databases. When many sequences are spuriously reported as having their accession numbers not found and/or sequence mismatches, it is advised to try using the database validation and the integration tools later.
 
 ## Citation
-TBC  
+TBC
+
+## References
+[1] NCBI Resource Coordinators. Database Resources of the National Center for Biotechnology Information. Nucleic Acids Research 2017;45(D1):D12-D17.  
+[2] Lakin, S.M., et al. MEGARes: an antimicrobial resistance database for high throughput sequencing. Nucleic Acids Research 2017;45(D1):D574-D580.  
+[3] Gupta, S.K., et al. ARG-ANNOT, a New Bioinformatic Tool To Discover Antibiotic Resistance Genes in Bacterial Genomes. Antimicrobial Agents and Chemotherapy 2014;58(1):212-220.  
+[4] Jia, B., et al. CARD 2017: expansion and model-centric curation of the comprehensive antibiotic resistance database. Nucleic Acids Research 2017;45(D1):D566-D573.  
+[5] McArthur, A.G., et al. The Comprehensive Antibiotic Resistance Database. Antimicrobial Agents and Chemotherapy 2013;57(7):3348-3357.  
+[6] McArthur, A.G. and Wright, G.D. Bioinformatics of antimicrobial resistance in the age of molecular epidemiology. Current Opinion in Microbiology 2015;27(Supplement C):45-50.  
+[7] Zankari, E., et al. Identification of acquired antimicrobial resistance genes. Journal of Antimicrobial Chemotherapy 2012;67(11):2640-2644.  
+[8] Bush, K. and Jacoby, G.A. Updated Functional Classification of β-Lactamases. Antimicrobial Agents and Chemotherapy 2010;54(3):969-976.  
