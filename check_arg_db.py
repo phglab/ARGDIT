@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 from ArgditLib import CDSPredict
-from ArgditLib.Config import Config
 from ArgditLib import EntrezDBAccess
 from ArgditLib import MultiSeqAlign
 from ArgditLib import OptionParser
-from ArgditLib import Translate
 from ArgditLib import Utils
+from ArgditLib.Config import Config
 from ArgditLib.ProcLog import ProcLog
 from ArgditLib.SequenceFileParser import SequenceFileParser
+from ArgditLib.Translate import Translate
 from Bio import AlignIO
 from Bio import SeqIO
 from Bio.Seq import Seq
@@ -40,8 +40,8 @@ def export_refined_seqs(refined_seq_records, seq_db_path):
 
 '''
 Function name: search_outlier_seqs_core
-Inputs       : Sequences of one ARG ontology class, minimum number of sequences requirement, bootstrap
-               factor, bootstrap iterations
+Inputs       : Sequences of one sequence annotation class, minimum number of sequences requirement,
+               bootstrap factor, bootstrap iterations
 Outputs      : Detected outlier sequences
 Description  : Core function to perform outlier sequence detection using OD-seq
 '''
@@ -89,14 +89,16 @@ def search_outlier_seqs_core(class_seq_record_tuple, min_seq_count, bootstrap_fa
 '''Entry point of the main program'''
 parser = argparse.ArgumentParser()
 parser.add_argument('seq_db_path', help = 'nucleotide/protein database FASTA file path')
-parser.add_argument('-f', '--fields', action = 'store', dest = 'otl_label_field_num_opt',
-                    help = 'ontology label field numbers for ontology class outlier sequence detection')
+parser.add_argument('-f', '--fields', action = 'store', dest = 'class_label_field_num_opt',
+                    help = 'sequence class label field numbers for sequence class outlier sequence detection')
 parser.add_argument('-r', '--refine', action = 'store_true', help = 'export refined DNA sequences')
+parser.add_argument('-c', '--geneticcode', action = 'store', type = int, dest = 'genetic_code',
+                    help = 'genetic code to specify which translation table to be used')
 parser.add_argument('-e', '--exportlog', action = 'store_true', help = 'export validation results and process log')
 args = parser.parse_args()
 
-otl_label_field_nums = None
-is_check_otl_annot = False
+class_label_field_nums = None
+is_check_seq_class = False
 ProcLog.init_logs()
 
 config = Config('config.ini')
@@ -104,9 +106,14 @@ config = Config('config.ini')
 if not os.path.exists(args.seq_db_path):
     ProcLog.log_exec_error('Database file \'{}\' does not exist'.format(args.seq_db_path))
 
-if args.otl_label_field_num_opt is not None:
-    otl_label_field_nums = OptionParser.parse_ontology_label_field_nums(args.otl_label_field_num_opt)
-    is_check_otl_annot = True
+if args.genetic_code is None:
+    Translate.init(config.default_genetic_code)
+else:
+    Translate.init(args.genetic_code)
+
+if args.class_label_field_num_opt is not None:
+    class_label_field_nums = OptionParser.parse_seq_class_label_field_nums(args.class_label_field_num_opt)
+    is_check_seq_class = True
 
 if ProcLog.has_exec_error():
     ProcLog.export_exec_error(sys.stdout)
@@ -206,7 +213,7 @@ for protein_acc_num in genbank_protein_info_set.keys():
 matched_protein_non_ver_acc_nums = latest_ver_protein_acc_num_map.keys()
 
 '''Validate the sequences of the four categories'''
-otl_protein_seq_record_grps = dict()
+seq_class_protein_seq_record_grps = dict()
 refined_nt_seq_records = list()
 protein_id_mapping_msg_template = ProcLog.PROTEIN_ID_MAPPING_MSG_TEMPLATE
 
@@ -220,7 +227,7 @@ for nt_acc_num, nt_seq_records in nt_id_nt_seq_records.items():
     '''
     if nt_non_ver_acc_num not in matched_nt_non_ver_acc_nums:
         for nt_seq_record in nt_seq_records:
-            ProcLog.log_acc_num_not_found(msg = nt_seq_record.id)
+            ProcLog.log_acc_num_not_found(msg = nt_seq_record.description)
     
         continue
 
@@ -240,13 +247,13 @@ for nt_acc_num, nt_seq_records in nt_id_nt_seq_records.items():
                                                      genbank_protein_info_set, non_acc_fmt_protein_ids)
 
         if translated_protein_info is None:
-            ProcLog.log_seq_mismatch(nt_seq_record.id, is_ver_obsolete)
+            ProcLog.log_seq_mismatch(nt_seq_record.description, is_ver_obsolete)
         else:
             if is_ver_obsolete:
-                ProcLog.log_obsolete_ver(msg = nt_seq_record.id)
+                ProcLog.log_obsolete_ver(msg = nt_seq_record.description)
 
             if non_acc_fmt_protein_id_mapping is not None:
-                ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(nt_seq_record.id,
+                ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(nt_seq_record.description,
                                                                             non_acc_fmt_protein_id_mapping[0],
                                                                             non_acc_fmt_protein_id_mapping[1]))
 
@@ -261,14 +268,14 @@ for nt_acc_num, nt_seq_records in nt_id_nt_seq_records.items():
                                                         id = nt_seq_record.description, name = '', description = ''))
 
             '''
-            Group the protein product according to the ARG ontology class for subsequent outlier
+            Group the protein product according to the sequence class for subsequent outlier
             sequence detection
             '''
-            if is_check_otl_annot:
+            if is_check_seq_class:
                 protein_seq_record = SeqRecord(Seq(translated_protein_info.seq_str), id = nt_seq_record.id,
                                                name = '', description = '')
-                Utils.group_protein_by_otl_class(otl_protein_seq_record_grps, protein_seq_record,
-                                                otl_label_field_nums, config)
+                Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
+                                                 class_label_field_nums, config)
 
 '''Validate ARG protein sequences annotated by NCBI nucleotide accession numbers'''
 for nt_acc_num, protein_seq_records in nt_id_protein_seq_records.items():
@@ -280,7 +287,7 @@ for nt_acc_num, protein_seq_records in nt_id_protein_seq_records.items():
     '''
     if nt_non_ver_acc_num not in matched_nt_non_ver_acc_nums:
         for protein_seq_record in protein_seq_records:
-            ProcLog.log_acc_num_not_found(msg = protein_seq_record.id)
+            ProcLog.log_acc_num_not_found(msg = protein_seq_record.description)
 
         continue
 
@@ -309,7 +316,7 @@ for nt_acc_num, protein_seq_records in nt_id_protein_seq_records.items():
                                                                                   genbank_protein_info_set,
                                                                                   non_acc_fmt_protein_ids)
                 if matched_protein_id is not None:
-                    ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(protein_seq_record.id,
+                    ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(protein_seq_record.description,
                                                                                 target_cds_region.protein_id,
                                                                                 matched_protein_id))
                     is_protein_seq_matched = True
@@ -317,17 +324,17 @@ for nt_acc_num, protein_seq_records in nt_id_protein_seq_records.items():
 
         if is_protein_seq_matched:
             if is_ver_obsolete:
-                ProcLog.log_obsolete_ver(msg = protein_seq_record.id)
+                ProcLog.log_obsolete_ver(msg = protein_seq_record.description)
 
             '''
-            Group the ARG protein sequence according to the ARG ontology class for subsequent outlier
+            Group the ARG protein sequence according to the sequence class for subsequent outlier
             sequence detection
             '''
-            if is_check_otl_annot:
-                Utils.group_protein_by_otl_class(otl_protein_seq_record_grps, protein_seq_record,
-                                                otl_label_field_nums, config)
+            if is_check_seq_class:
+                Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
+                                                 class_label_field_nums, config)
         else:
-            ProcLog.log_seq_mismatch(protein_seq_record.id, is_ver_obsolete)
+            ProcLog.log_seq_mismatch(protein_seq_record.description, is_ver_obsolete)
 
 '''Validate ARG nucleotide sequences annotated by NCBI protein accession numbers'''
 for protein_acc_num, nt_seq_records in protein_id_nt_seq_records.items():
@@ -360,19 +367,19 @@ for protein_acc_num, nt_seq_records in protein_id_nt_seq_records.items():
             if matched_protein_id is None:
                 is_protein_seq_matched = False
             else:
-                ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(nt_seq_record.id, protein_acc_num,
-                                                                            matched_protein_id))
+                ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(nt_seq_record.description,
+                                                                            protein_acc_num, matched_protein_id))
                 is_protein_seq_matched = True
 
         if is_protein_seq_matched:
             if is_ver_obsolete:
-                ProcLog.log_obsolete_ver(msg = nt_seq_record.id)
+                ProcLog.log_obsolete_ver(msg = nt_seq_record.description)
 
             '''
-            Group the protein product according to the ARG ontology class for subsequent outlier
+            Group the protein product according to the sequence class for subsequent outlier
             sequence detection
             '''
-            if is_check_otl_annot:
+            if is_check_seq_class:
                 if latest_ver_protein_acc_num is not None:
                     genbank_protein_info = genbank_protein_info_set[latest_ver_protein_acc_num]
                 else:
@@ -381,10 +388,10 @@ for protein_acc_num, nt_seq_records in protein_id_nt_seq_records.items():
                 protein_seq_record = SeqRecord(Seq(genbank_protein_info.seq_str), id = nt_seq_record.id,
                                                name = '', description = '')
 
-                Utils.group_protein_by_otl_class(otl_protein_seq_record_grps, protein_seq_record,
-                                                otl_label_field_nums, config)
+                Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
+                                                 class_label_field_nums, config)
         else:
-            ProcLog.log_seq_mismatch(nt_seq_record.id, is_ver_obsolete)
+            ProcLog.log_seq_mismatch(nt_seq_record.description, is_ver_obsolete)
 
 '''Validate ARG protein sequences annotated by NCBI protein accession numbers'''
 for protein_acc_num, protein_seq_records in protein_id_protein_seq_records.items():
@@ -415,36 +422,36 @@ for protein_acc_num, protein_seq_records in protein_id_protein_seq_records.items
             if matched_protein_id is None:
                 is_protein_seq_matched = False
             else:
-                ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(protein_seq_record.id, protein_acc_num,
-                                                                            matched_protein_id))
+                ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(protein_seq_record.description,
+                                                                            protein_acc_num, matched_protein_id))
                 is_protein_seq_matched = True
 
         if is_protein_seq_matched:
             if is_ver_obsolete:
-                ProcLog.log_obsolete_ver(msg = protein_seq_record.id)
+                ProcLog.log_obsolete_ver(msg = protein_seq_record.description)
 
             '''
-            Group the ARG protein sequence according to the ARG ontology class for subsequent outlier
+            Group the ARG protein sequence according to the sequence class for subsequent outlier
             sequence detection
             '''
-            if is_check_otl_annot:
-                Utils.group_protein_by_otl_class(otl_protein_seq_record_grps, protein_seq_record,
-                                                otl_label_field_nums, config)
+            if is_check_seq_class:
+                Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
+                                                 class_label_field_nums, config)
         else:
-            ProcLog.log_seq_mismatch(protein_seq_record.id, is_ver_obsolete)
+            ProcLog.log_seq_mismatch(protein_seq_record.description, is_ver_obsolete)
 
-if is_check_otl_annot:
+if is_check_seq_class:
     cpu_count = len(os.sched_getaffinity(0))
 
     with Pool(cpu_count) as pool:
-        otl_cls_outlier_seq_records = list(pool.imap_unordered(search_outlier_seqs,
-                                                               otl_protein_seq_record_grps.items()))
+        seq_class_outlier_seq_records = list(pool.imap_unordered(search_outlier_seqs,
+                                                                 seq_class_protein_seq_record_grps.items()))
 
     pool.join()
 
-    for outlier_seq_records in otl_cls_outlier_seq_records:
+    for outlier_seq_records in seq_class_outlier_seq_records:
         for seq_record in outlier_seq_records:
-            ProcLog.log_false_otl_annot(msg = seq_record.id)
+            ProcLog.log_false_seq_class(msg = seq_record.description)
 
 if args.exportlog:
     log_file_path = Utils.create_supp_file_path(args.seq_db_path, '.log')
@@ -452,7 +459,7 @@ if args.exportlog:
 else:
     output_stream = sys.stdout
 
-ProcLog.export_qc_check_logs(output_stream, is_check_otl_annot)
+ProcLog.export_qc_check_logs(output_stream, is_check_seq_class)
 
 seq_record_count = seq_file_parser.get_seq_record_count()
 
@@ -467,9 +474,9 @@ if args.refine:
         refined_seq_stmt = ProcLog.create_summary_stmt(refined_nt_seq_record_count, 'refined')
 
     refined_seq_summary = [refined_seq_stmt]
-    ProcLog.export_qc_check_summary(output_stream, seq_record_count, is_check_otl_annot, refined_seq_summary)
+    ProcLog.export_qc_check_summary(output_stream, seq_record_count, is_check_seq_class, refined_seq_summary)
 else:
-    ProcLog.export_qc_check_summary(output_stream, seq_record_count, is_check_otl_annot)
+    ProcLog.export_qc_check_summary(output_stream, seq_record_count, is_check_seq_class)
 
 if args.exportlog:
     output_stream.close()

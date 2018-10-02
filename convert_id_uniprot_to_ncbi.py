@@ -34,7 +34,7 @@ uniprot_ids = set()
 
 with open(args.seq_db_path, 'rU') as f:
     for seq_record in SeqIO.parse(f, 'fasta'):
-        m = re.search(UNIPROT_ACC_NUM_PATTERN, seq_record.id)
+        m = re.search(UNIPROT_ACC_NUM_PATTERN, seq_record.description)
         if m:
             uniprot_ids.add(m.group(1))
 
@@ -96,9 +96,6 @@ if ProcLog.has_exec_error():
     sys.exit()
 
 ncbi_protein_seqs = search_protein_seqs(ncbi_protein_acc_nums)
-'''
-ncbi_protein_seqs = search_protein_seqs_hist('1', 'NCID_1_240214757_130.14.22.215_9001_1512033991_857635292_0MetA0_S_MegaStore_F_1', 1600)
-'''
 
 if ProcLog.has_exec_error():
     ProcLog.export_exec_error(sys.stdout)
@@ -113,11 +110,11 @@ with open(args.output_seq_db_path, 'w') as fw:
     with open(args.seq_db_path, 'rU') as f:
         for seq_record in SeqIO.parse(f, 'fasta'):
             input_seq_record_count += 1
-            m = re.search(UNIPROT_ACC_NUM_PATTERN, seq_record.id)
+            m = re.search(UNIPROT_ACC_NUM_PATTERN, seq_record.description)
             if m:
                 uniprot_id = m.group(1)
             else:
-                ProcLog.log_exec_msg('Uniprot ID not found in {}'.format(seq_record.id))
+                ProcLog.log_exec_msg('Uniprot ID not found in {}'.format(seq_record.description))
                 continue
 
             if uniprot_id in uniprot_to_ncbi_ids_map:
@@ -136,7 +133,7 @@ with open(args.output_seq_db_path, 'w') as fw:
                 SeqIO.write(ncbi_id_seq_record, fw, 'fasta')
                 export_seq_record_count += 1
             else:
-                ProcLog.log_exec_msg('NCBI accession no. not found for {}'.format(seq_record.id))
+                ProcLog.log_exec_msg('NCBI accession no. not found for {}'.format(seq_record.description))
                 unresolved_uniprot_id_count += 1
 
 summary = list()

@@ -16,12 +16,29 @@ Description  : First detects for the NCBI nucleotide accession number, and then 
                string when no accession number is detected
 '''
 def check_acc_num_type(fasta_header):
-    if re.search(NT_ACC_NUM_EMBED_PATTERN, fasta_header):
-        return 'NT'
-    elif re.search(PROTEIN_ACC_NUM_EMBED_PATTERN, fasta_header):
-        return 'AA'
+    is_acc_num_found = False
+
+    m = re.search(NT_ACC_NUM_EMBED_PATTERN, fasta_header)
+    if m:
+        nt_acc_num_start_pos = m.start(2)
+        is_acc_num_found = True
     else:
-        return ''
+        nt_acc_num_start_pos = len(fasta_header)
+
+    m = re.search(PROTEIN_ACC_NUM_EMBED_PATTERN, fasta_header)
+    if m:
+        protein_acc_num_start_pos = m.start(2)
+        is_acc_num_found = True
+    else:
+        protein_acc_num_start_pos = len(fasta_header)
+
+    if is_acc_num_found:
+        if nt_acc_num_start_pos < protein_acc_num_start_pos:
+            return 'NT'
+        elif nt_acc_num_start_pos > protein_acc_num_start_pos:
+            return 'AA'
+
+    return ''
 
 '''
 Function name: _extract_genbank_acc_num
@@ -204,45 +221,45 @@ def add_to_group(data_groups, group_id, input_data):
             data_groups[group_id] = [input_data]
 
 '''
-Function name: extract_ontology_class_by_fields
-Inputs       : Sequence header, ARG ontology field indices, original field separator, new field
-               separator
-Outputs      : Extracted ARG ontology class or None
-Description  : Extracts the ARG ontology fields from the sequence header, and then joins them
-               to form an ontology class label, in which the fields are separated by a new
+Function name: extract_seq_class_by_fields
+Inputs       : Sequence header, sequence class field indices, original field separator, new
                field separator
+Outputs      : Extracted sequence class or None
+Description  : Extracts the sequence class fields from the sequence header, and then joins
+               them to form a sequence class label, in which the fields are separated by a
+               new field separator
 '''
-def extract_ontology_class_by_fields(fasta_header, extract_index_list, org_sep, new_sep):
+def extract_seq_class_by_fields(fasta_header, extract_index_list, org_sep, new_sep):
     header_fields = fasta_header.split(org_sep)
     header_field_range =  set(range(-1 * len(header_fields), len(header_fields)))
     if not (set(extract_index_list) <= header_field_range):
         return None
     
-    otl_class = None
+    seq_class_label = None
 
     for extract_index in extract_index_list:
-        if otl_class is None:
-            otl_class = header_fields[extract_index]
+        if seq_class_label is None:
+            seq_class_label = header_fields[extract_index]
         else:
-            otl_class = '{}{}{}'.format(otl_class, new_sep, header_fields[extract_index])
+            seq_class_label = '{}{}{}'.format(seq_class_label, new_sep, header_fields[extract_index])
 
-    return otl_class
+    return seq_class_label
 
 '''
-Function name: group_protein_by_otl_class
-Inputs       : Existing protein groups, protein sequence record, ARG ontology field indices, and
-               ARGDIT configuration
+Function name: group_protein_by_seq_class
+Inputs       : Existing protein groups, protein sequence record, sequence class field indices,
+               and ARGDIT configuration
 Outputs      : Nil
-Description  : Categorizes protein sequence records according to their extracted ARG ontology
+Description  : Categorizes protein sequence records according to their extracted sequence
                class labels
 '''
-def group_protein_by_otl_class(otl_protein_seq_record_grps, protein_seq_record, otl_label_field_nums, config):
-    otl_class = extract_ontology_class_by_fields(protein_seq_record.id, otl_label_field_nums,
-                                                 config.fasta_header_field_sep, config.field_sep)
-    if otl_class is None:
-        ProcLog.log_exec_error('Ontology class cannot be extracted from {}'.format(protein_seq_record.id))
+def group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record, class_label_field_nums, config):
+    seq_class_label = extract_seq_class_by_fields(protein_seq_record.id, class_label_field_nums,
+                                                  config.fasta_header_field_sep, config.field_sep)
+    if seq_class_label is None:
+        ProcLog.log_exec_error('Sequence class cannot be extracted from {}'.format(protein_seq_record.description))
     else:
-        add_to_group(otl_protein_seq_record_grps, otl_class, protein_seq_record)
+        add_to_group(seq_class_protein_seq_record_grps, seq_class_label, protein_seq_record)
 
 '''
 Function name: check_redundant_seq

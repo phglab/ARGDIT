@@ -1,14 +1,14 @@
 '''Module to predict CDS sequence segment from input nucleotide/protein sequence'''
 
 from Bio.Seq import Seq
-from . import Translate
+from .Translate import Translate
 from .CDSSeqSegment import CDSSeqSegment
 from .Utils import trim_version, add_to_group
 
 '''
 Function name: _detect_start_and_stop_codons
 Inputs       : Nucleotide sequence string
-Outputs      : All detected bacterial start and stop codons
+Outputs      : All detected start and stop codons
 Description  : Detects all start codons within the first 5 nucleotides, and all stop codons within
                the last 5 nucleotides
 '''
@@ -16,14 +16,14 @@ def _detect_start_and_stop_codons(seq_str):
     cds_starts = list()
 
     for i in range(3):
-        if seq_str[i:i + 3] in Translate.BACTERIAL_START_CODONS:
+        if seq_str[i:i + 3] in Translate.get_start_codons():
             cds_starts.append(i)
 
     cds_ends = list()
     seq_len = len(seq_str)
 
     for i in range(seq_len - 5, seq_len - 2):
-        if seq_str[i:i + 3] in Translate.STOP_CODONS:
+        if seq_str[i:i + 3] in Translate.get_stop_codons():
             cds_ends.append(i + 3)
 
     return cds_starts, cds_ends

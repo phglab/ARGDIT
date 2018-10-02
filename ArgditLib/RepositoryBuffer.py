@@ -208,9 +208,7 @@ class RepositoryBuffer:
                     exported_seq_headers.add(selected_seq_record.id)
 
             output_seq_records.append(selected_seq_record)
-
-            for seq_record_src_tag in unselected_seq_record_src_tags:
-                ProcLog.log_cross_db_redundant_seq(seq_record_src_tag)
+            ProcLog.log_merge_db_result(selected_seq_record.id, ordered_redundant_seq_rec_src_tags)
 
         return output_seq_records
 

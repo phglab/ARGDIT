@@ -3,14 +3,14 @@
 from ArgditLib import CDSPredict
 from ArgditLib import EntrezDBAccess
 from ArgditLib import OptionParser
-from ArgditLib import Translate
 from ArgditLib import Utils
 from ArgditLib.Config import Config
 from ArgditLib.Constants import SEQ_VERSION_MARKUP
-from ArgditLib.OntologyAnnotator import OntologyAnnotator
 from ArgditLib.ProcLog import ProcLog
 from ArgditLib.RepositoryBuffer import RepositoryBuffer
+from ArgditLib.SequenceClassifier import SequenceClassifier
 from ArgditLib.SequenceFileParser import SequenceFileParser
+from ArgditLib.Translate import Translate
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -45,7 +45,7 @@ def match_protein_cds_for_nt_id_nt_seq_rec(nt_id_nt_seq_records, seq_db_path, da
 
         if nt_non_ver_acc_num not in matched_nt_non_ver_acc_nums:
             for nt_seq_record in nt_seq_records:
-                ProcLog.log_acc_num_not_found(msg = nt_seq_record.id, db_name = seq_db_path,
+                ProcLog.log_acc_num_not_found(msg = nt_seq_record.description, db_name = seq_db_path,
                                               is_for_schema_db = is_schema_db)
 
             continue
@@ -63,8 +63,8 @@ def match_protein_cds_for_nt_id_nt_seq_rec(nt_id_nt_seq_records, seq_db_path, da
                                                          target_cds_region_grps[latest_ver_nt_acc_num],
                                                          genbank_protein_info_set, non_acc_fmt_protein_ids)
             if translated_protein_info is None:
-                ProcLog.log_seq_mismatch(seq_id = nt_seq_record.id, is_obsolete_ver = False, db_name = seq_db_path,
-                                         is_for_schema_db = is_schema_db)
+                ProcLog.log_seq_mismatch(seq_id = nt_seq_record.description, is_obsolete_ver = False,
+                                         db_name = seq_db_path, is_for_schema_db = is_schema_db)
             else:
                 matched_protein_info_set[nt_seq_record.id] = translated_protein_info
                 matched_cds_region_set[nt_seq_record.id] = matched_target_cds_region
@@ -94,7 +94,7 @@ def match_protein_cds_for_nt_id_protein_seq_rec(nt_id_protein_seq_records, seq_d
 
         if nt_non_ver_acc_num not in matched_nt_non_ver_acc_nums:
             for protein_seq_record in protein_seq_records:
-                ProcLog.log_acc_num_not_found(msg = protein_seq_record.id, db_name = seq_db_path,
+                ProcLog.log_acc_num_not_found(msg = protein_seq_record.description, db_name = seq_db_path,
                                               is_for_schema_db = is_schema_db)
 
             continue
@@ -132,8 +132,8 @@ def match_protein_cds_for_nt_id_protein_seq_rec(nt_id_protein_seq_records, seq_d
                 matched_protein_info_set[protein_seq_record.id] = genbank_protein_info
                 matched_cds_region_set[protein_seq_record.id] = matched_target_cds_region
             else:
-                ProcLog.log_seq_mismatch(seq_id = protein_seq_record.id, is_obsolete_ver = False, db_name = seq_db_path,
-                                         is_for_schema_db = is_schema_db)
+                ProcLog.log_seq_mismatch(seq_id = protein_seq_record.description, is_obsolete_ver = False,
+                                         db_name = seq_db_path, is_for_schema_db = is_schema_db)
 
     return matched_protein_info_set, matched_cds_region_set
 
@@ -186,8 +186,8 @@ def match_protein_info_for_protein_id_nt_seq_rec(protein_id_nt_seq_records, seq_
             if is_protein_seq_matched:
                 matched_protein_info_set[nt_seq_record.id] = genbank_protein_info
             else:
-                ProcLog.log_seq_mismatch(seq_id = nt_seq_record.id, is_obsolete_ver = False, db_name = seq_db_path,
-                                         is_for_schema_db = is_schema_db)
+                ProcLog.log_seq_mismatch(seq_id = nt_seq_record.description, is_obsolete_ver = False,
+                                         db_name = seq_db_path, is_for_schema_db = is_schema_db)
 
     return matched_protein_info_set
 
@@ -238,8 +238,8 @@ def match_protein_info_for_protein_id_protein_seq_rec(protein_id_protein_seq_rec
             if is_protein_seq_matched:
                 matched_protein_info_set[protein_seq_record.id] = genbank_protein_info
             else:
-                ProcLog.log_seq_mismatch(seq_id = protein_seq_record.id, is_obsolete_ver = False, db_name = seq_db_path,
-                                         is_for_schema_db = is_schema_db)
+                ProcLog.log_seq_mismatch(seq_id = protein_seq_record.description, is_obsolete_ver = False,
+                                         db_name = seq_db_path, is_for_schema_db = is_schema_db)
 
     return matched_protein_info_set
 
@@ -298,16 +298,16 @@ def match_protein_cds(seq_file_parser, seq_db_path, data_params, nt_acc_num_para
     return all_matched_protein_info_set, all_matched_cds_region_set
 
 '''
-Function name: build_ontology_annotator
+Function name: build_seq_classifier
 Inputs       : Sequence file parser, translated protein sequences for the nucleotide sequences in the
-               ARG schema database, ARG ontology label field numbers, ARGDIT configuration
-Outputs      : Ontology annotator
-Description  : Generate the ontology annotator using the ARG schema database which is parsed by the
-               corresponding sequence file parser. The ARG ontology class information in the sequence
-               header is indicated by the ontology label field numbers
+               sequence class schema database, sequence class label field numbers, ARGDIT configuration
+Outputs      : Sequence classifier
+Description  : Generate the sequence classifier using the ARG schema database which is parsed by the
+               corresponding sequence file parser. The sequence class information in the sequence
+               header is indicated by the sequence class label field numbers
 '''
-def build_ontology_annotator(seq_file_parser, matched_protein_info_set, otl_label_field_nums, config):
-    otl_protein_seq_record_grps = dict()
+def build_seq_classifier(seq_file_parser, matched_protein_info_set, seq_class_label_field_nums, config):
+    seq_class_protein_seq_record_grps = dict()
 
     for nt_seq_record in seq_file_parser.get_nt_seq_record_list():
         if nt_seq_record.id not in matched_protein_info_set:
@@ -316,32 +316,32 @@ def build_ontology_annotator(seq_file_parser, matched_protein_info_set, otl_labe
         matched_protein_info = matched_protein_info_set[nt_seq_record.id]
         protein_seq_record = SeqRecord(Seq(matched_protein_info.seq_str), id = nt_seq_record.id, name = '',
                                        description = '')
-        Utils.group_protein_by_otl_class(otl_protein_seq_record_grps, protein_seq_record, otl_label_field_nums,
-                                         config)
+        Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
+                                         seq_class_label_field_nums, config)
 
     for protein_seq_record in seq_file_parser.get_protein_seq_record_list():
-        Utils.group_protein_by_otl_class(otl_protein_seq_record_grps, protein_seq_record, otl_label_field_nums,
-                                         config)
+        Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
+                                         seq_class_label_field_nums, config)
 
-    '''Ontology annotator only includes ARG ontology class with more than config.min_seq_count sequences'''
-    qualified_otl_seq_record_grps = dict()
+    '''Sequence classifier ONLY includes sequence classes with more than config.min_seq_count sequences'''
+    qualified_seq_class_seq_record_grps = dict()
 
-    for otl_class, seq_records in otl_protein_seq_record_grps.items():
+    for seq_class, seq_records in seq_class_protein_seq_record_grps.items():
         if len(seq_records) >= config.min_seq_count:
-            qualified_otl_seq_record_grps[otl_class] = seq_records
+            qualified_seq_class_seq_record_grps[seq_class] = seq_records
 
-    return OntologyAnnotator(qualified_otl_seq_record_grps), set(otl_protein_seq_record_grps.keys())
+    return SequenceClassifier(qualified_seq_class_seq_record_grps), set(seq_class_protein_seq_record_grps.keys())
 
 '''
-Function name: batch_otl_annotate
-Inputs       : Ontology annotator, nucleotide sequences to be annotated, protein sequences to be
-               annotated, translated protein sequences for the nucleotide sequences in the ARG
-               databases
-Outputs      : ARG ontology class labels
-Description  : Predict ARG ontology class labels for the input nucleotide and/or protein sequences
-               using the ontology annotator
+Function name: batch_classify
+Inputs       : Sequence classifier, nucleotide sequences to be classified, protein sequences to be
+               classified, translated protein sequences for the nucleotide sequences in the
+               sequence databases
+Outputs      : Sequence class labels
+Description  : Predict sequence class labels for the input nucleotide and/or protein sequences
+               using the sequence classifier
 '''
-def batch_otl_annotate(otl_annotator, nt_seq_record_list, protein_seq_record_list, matched_protein_info_set):
+def batch_classify(seq_classifier, nt_seq_record_list, protein_seq_record_list, matched_protein_info_set):
     input_protein_seq_record_list = list(protein_seq_record_list)
     for nt_seq_record in nt_seq_record_list:
         if nt_seq_record.id in matched_protein_info_set:
@@ -350,7 +350,7 @@ def batch_otl_annotate(otl_annotator, nt_seq_record_list, protein_seq_record_lis
                                                            id = nt_seq_record.id, name = nt_seq_record.name,
                                                            description = nt_seq_record.description))
 
-    return otl_annotator.annotate_ontology_label(input_protein_seq_record_list)
+    return seq_classifier.predict(input_protein_seq_record_list)
 
 '''
 Function name: generate_genbank_seq_header
@@ -396,12 +396,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('seq_db_paths', nargs = '+', help = 'nucleotide/protein database FASTA file paths')
 parser.add_argument('-o', '--output', action = 'store', dest = 'output_seq_db_path', required = True,
                     help = 'output database file path')
-parser.add_argument('-s', '--schema', action = 'store', dest = 'otl_schema', nargs = 2,
-                    help = 'schema database and ontology field numbers for sequence classification')
+parser.add_argument('-s', '--schema', action = 'store', dest = 'seq_class_schema', nargs = 2,
+                    help = 'schema database and sequence class label field numbers for sequence classification')
 parser.add_argument('-a', '--annotate', action = 'store_true',
                     help = 'automatic re-annotation using NCBI database information')
 parser.add_argument('-p', '--protein', action = 'store_true', help = 'export protein sequences')
 parser.add_argument('-r', '--redundant', action = 'store_true', help = 'allow redundant sequences')
+parser.add_argument('-c', '--geneticcode', action = 'store', type = int, dest = 'genetic_code',
+                    help = 'genetic code to specify which translation table to be used')
 parser.add_argument('-e', '--exportlog', action = 'store_true', help = 'export integration results and process log')
 
 args = parser.parse_args()
@@ -414,14 +416,19 @@ for seq_db_path in args.seq_db_paths:
     if not os.path.exists(seq_db_path):
         ProcLog.log_exec_error('Database file \'{}\' does not exist'.format(seq_db_path))
 
-otl_schema_file_path = None
-if args.otl_schema is not None:
-    otl_label_field_nums = OptionParser.parse_ontology_label_field_nums(args.otl_schema[1])
+if args.genetic_code is None:
+    Translate.init(config.default_genetic_code)
+else:
+    Translate.init(args.genetic_code)
 
-    if os.path.exists(args.otl_schema[0]):
-        otl_schema_file_path = args.otl_schema[0]
+schema_db_file_path = None
+if args.seq_class_schema is not None:
+    seq_class_label_field_nums = OptionParser.parse_seq_class_label_field_nums(args.seq_class_schema[1])
+
+    if os.path.exists(args.seq_class_schema[0]):
+        schema_db_file_path = args.seq_class_schema[0]
     else:
-        ProcLog.log_exec_error('Schema database file \'{}\' does not exist'.format(args.otl_schema[0]))
+        ProcLog.log_exec_error('Schema database file \'{}\' does not exist'.format(args.seq_class_schema[0]))
 
 if ProcLog.has_exec_error():
     ProcLog.export_exec_error(sys.stdout)
@@ -439,20 +446,20 @@ for seq_db_path in args.seq_db_paths:
 
 schema_db_seq_rec_count = 0
 
-if args.otl_schema is not None:
-    if otl_schema_file_path in db_seq_file_parsers:
-        otl_schema_seq_file_parser = db_seq_file_parsers[otl_schema_file_path]
+if args.seq_class_schema is not None:
+    if schema_db_file_path in db_seq_file_parsers:
+        schema_db_file_parser = db_seq_file_parsers[schema_db_file_path]
     else:
         '''
         If the ARG schema database is not one of the source ARG databases to be merged, then only its
         nucleotide sequences require NCBI database query to perform translation, and so the sequence
         file parser only parses these sequences
         '''
-        otl_schema_seq_file_parser = SequenceFileParser()
-        otl_schema_seq_file_parser.parse_ontology_schema_db(otl_schema_file_path, is_nt_seq_only = True)
-        db_seq_file_parsers[otl_schema_file_path] = otl_schema_seq_file_parser
+        schema_db_file_parser = SequenceFileParser()
+        schema_db_file_parser.parse_seq_class_schema_db(schema_db_file_path, is_nt_seq_only = True)
+        db_seq_file_parsers[schema_db_file_path] = schema_db_file_parser
 
-    schema_db_seq_rec_count += otl_schema_seq_file_parser.get_seq_record_count()
+    schema_db_seq_rec_count += schema_db_file_parser.get_seq_record_count()
 
 global_cds_seq_len_filters = dict()
 db_class_candidate_cds_seq_segments = dict()
@@ -460,9 +467,9 @@ query_protein_acc_nums = set()
 
 '''
 NCBI database query required only when auto-generation of ARG sequence header, conversion to protein
-sequences, or ARG ontology annotation is required
+sequences, or sequence annotation class is required
 '''
-if args.annotate or args.protein or args.otl_schema is not None:
+if args.annotate or args.protein or args.seq_class_schema is not None:
     '''
     For ARG nucleotide and protein sequences with NCBI nucleotide accession numbers, predict the
     lengths of their potential CDS sequences, and use these lengths as sequence length filters to
@@ -472,7 +479,7 @@ if args.annotate or args.protein or args.otl_schema is not None:
     for seq_db_path, seq_file_parser in db_seq_file_parsers.items():
         nt_id_nt_seq_records = seq_file_parser.get_nt_id_nt_seq_records()
 
-        if args.annotate or args.otl_schema is not None:
+        if args.annotate or args.seq_class_schema is not None:
             nt_id_protein_seq_records = seq_file_parser.get_nt_id_protein_seq_records()
         else:
             nt_id_protein_seq_records = dict()
@@ -490,7 +497,7 @@ if args.annotate or args.protein or args.otl_schema is not None:
         if len(protein_id_nt_seq_records) > 0:
             query_protein_acc_nums.update(map(Utils.trim_version, protein_id_nt_seq_records.keys()))
 
-        if args.annotate or args.otl_schema is not None:
+        if args.annotate or args.seq_class_schema is not None:
             protein_id_protein_seq_records = seq_file_parser.get_protein_id_protein_seq_records()
             if len(protein_id_protein_seq_records) > 0:
                 query_protein_acc_nums.update(map(Utils.trim_version, protein_id_protein_seq_records.keys()))
@@ -568,10 +575,10 @@ accession numbers of the target protein sequences
 '''
 protein_acc_num_params = latest_ver_protein_acc_num_map, matched_protein_non_ver_acc_nums
 
-'''Build the ontology annotator for the ARG schema database'''
-if args.otl_schema is not None:
-    if otl_schema_file_path in db_class_candidate_cds_seq_segments:
-        candidate_cds_seq_segment_map = db_class_candidate_cds_seq_segments[otl_schema_file_path]
+'''Build the sequence classifier for the ARG schema database'''
+if args.seq_class_schema is not None:
+    if schema_db_file_path in db_class_candidate_cds_seq_segments:
+        candidate_cds_seq_segment_map = db_class_candidate_cds_seq_segments[schema_db_file_path]
     else:
         candidate_cds_seq_segment_map = dict()
 
@@ -585,27 +592,27 @@ if args.otl_schema is not None:
 
     '''
     Match the protein sequences (previously downloaded from the NCBI database) for the nucleotide
-    sequences in the ARG schema database to build the ontology annotator
+    sequences in the ARG schema database to build the sequence classifier
     '''
-    matched_protein_info_set, _ = match_protein_cds(otl_schema_seq_file_parser, otl_schema_file_path, data_params,
+    matched_protein_info_set, _ = match_protein_cds(schema_db_file_parser, schema_db_file_path, data_params,
                                                     nt_acc_num_params, protein_acc_num_params, is_schema_db = True,
                                                     is_nt_seq_only = True)
 
     '''
-    If the ontology schema file path is not in the sequence DB file paths, parse the schema file again
-    to recover the protein sequence records, which are omitted in the first parse to avoid unnecessary
+    If the schema DB file path is not in the sequence DB file paths, parse the schema file again to
+    recover the protein sequence records, which are omitted in the first parse to avoid unnecessary
     GenBank query
     '''
-    if otl_schema_file_path not in args.seq_db_paths:
-        otl_schema_seq_file_parser.parse_ontology_schema_db(otl_schema_file_path)
-        for seq_header in otl_schema_seq_file_parser.get_invalid_acc_num_fmt_seq_rec_ids():
-            ProcLog.log_invalid_acc_num_fmt(msg = seq_header, db_name = otl_schema_file_path, is_for_schema_db = True)
+    if schema_db_file_path not in args.seq_db_paths:
+        schema_db_file_parser.parse_seq_class_schema_db(schema_db_file_path)
+        for seq_header in schema_db_file_parser.get_invalid_acc_num_fmt_seq_rec_ids():
+            ProcLog.log_invalid_acc_num_fmt(msg = seq_header, db_name = schema_db_file_path, is_for_schema_db = True)
 
-        for seq_header in otl_schema_seq_file_parser.get_unknown_seq_type_seq_rec_ids():
-            ProcLog.log_unknown_seq_type(msg = seq_header, db_name = otl_schema_file_path, is_for_schema_db = True)
+        for seq_header in schema_db_file_parser.get_unknown_seq_type_seq_rec_ids():
+            ProcLog.log_unknown_seq_type(msg = seq_header, db_name = schema_db_file_path, is_for_schema_db = True)
 
-    otl_annotator, schema_otl_classes = build_ontology_annotator(otl_schema_seq_file_parser, matched_protein_info_set,
-                                                                 otl_label_field_nums, config)
+    seq_classifier, schema_seq_classes = build_seq_classifier(schema_db_file_parser, matched_protein_info_set,
+                                                              seq_class_label_field_nums, config)
 
 repos_buffer = RepositoryBuffer()
 merged_db_seq_headers = set()
@@ -619,9 +626,9 @@ for seq_db_path in args.seq_db_paths:
 
     '''
     Match the protein sequences (previously downloaded from the NCBI database) when auto-generation of
-    ARG sequence header, conversion to protein sequences, or ARG ontology annotation is required
+    ARG sequence header, conversion to protein sequences, or sequence classification is required
     '''
-    if args.annotate or args.protein or args.otl_schema is not None:
+    if args.annotate or args.protein or args.seq_class_schema is not None:
         if seq_db_path in db_class_candidate_cds_seq_segments:
             candidate_cds_seq_segment_map = db_class_candidate_cds_seq_segments[seq_db_path]
         else:
@@ -637,24 +644,24 @@ for seq_db_path in args.seq_db_paths:
         '''
         Match the protein sequences (previously downloaded from the NCBI database) for the nucleotide
         sequences in the source ARG database for auto-generation of sequence headers, protein
-        sequence conversion, or ARG ontology class annotation (except the schema ARG database itself);
+        sequence conversion, or sequence classification (except the schema database itself);
         associated CDS regions also matched for sequence header auto-generation
         '''
         if args.annotate:
             matched_protein_info_set, matched_cds_region_set = \
                 match_protein_cds(seq_file_parser, seq_db_path, data_params, nt_acc_num_params,
                                   protein_acc_num_params)
-        elif args.protein or (args.otl_schema is not None and seq_db_path != otl_schema_file_path):
+        elif args.protein or (args.seq_class_schema is not None and seq_db_path != schema_db_file_path):
             matched_protein_info_set, _ = match_protein_cds(seq_file_parser, seq_db_path, data_params,
                                                             nt_acc_num_params, protein_acc_num_params,
                                                             is_nt_seq_only = True)
 
-        if args.otl_schema is not None and seq_db_path != otl_schema_file_path:
-            otl_class_label_map = batch_otl_annotate(otl_annotator, seq_file_parser.get_nt_seq_record_list(),
-                                                     seq_file_parser.get_protein_seq_record_list(),
-                                                     matched_protein_info_set)
+        if args.seq_class_schema is not None and seq_db_path != schema_db_file_path:
+            seq_class_label_map = batch_classify(seq_classifier, seq_file_parser.get_nt_seq_record_list(),
+                                                 seq_file_parser.get_protein_seq_record_list(),
+                                                 matched_protein_info_set)
         else:
-            otl_class_label_map = None
+            seq_class_label_map = None
 
         for seq_header in seq_file_parser.get_invalid_acc_num_fmt_seq_rec_ids():
             ProcLog.log_invalid_acc_num(msg = seq_header, db_name = seq_db_path)
@@ -664,7 +671,7 @@ for seq_db_path in args.seq_db_paths:
     for seq_records in seq_record_groups.values():
         for seq_record in seq_records:
             '''Skip sequences without matched protein sequences and information'''
-            if (args.annotate or args.otl_schema is not None) and seq_record.id not in matched_protein_info_set:
+            if (args.annotate or args.seq_class_schema is not None) and seq_record.id not in matched_protein_info_set:
                 continue
 
             '''Perform sequence header auto-generation'''
@@ -692,28 +699,28 @@ for seq_db_path in args.seq_db_paths:
             else:
                 export_seq = seq_record.seq
 
-            '''Perform ARG ontology classification'''
-            if args.otl_schema is not None:
-                org_otl_class_label = Utils.extract_ontology_class_by_fields(seq_record.id, otl_label_field_nums,
-                                                                             config.fasta_header_field_sep,
-                                                                             config.field_sep)
-                otl_class_label = None
-                if org_otl_class_label is not None and org_otl_class_label in schema_otl_classes:
+            '''Perform sequence classification'''
+            if args.seq_class_schema is not None:
+                org_seq_class_label = Utils.extract_seq_class_by_fields(seq_record.id, seq_class_label_field_nums,
+                                                                        config.fasta_header_field_sep,
+                                                                        config.field_sep)
+                seq_class_label = None
+                if org_seq_class_label is not None and org_seq_class_label in schema_seq_classes:
                     if args.annotate:
-                        otl_class_label = org_otl_class_label
+                        seq_class_label = org_seq_class_label
                 else:
-                    if seq_record.id in otl_class_label_map:
-                        otl_class_label = otl_class_label_map[seq_record.id].replace(config.field_sep,
+                    if seq_record.id in seq_class_label_map:
+                        seq_class_label = seq_class_label_map[seq_record.id].replace(config.field_sep,
                                                                                      config.fasta_header_field_sep)
                     else:
-                        otl_class_label = 'UNKNOWN_ONTOLOGY_CLASS'
+                        seq_class_label = 'UNKNOWN_CLASS'
 
-                if otl_class_label is not None:
+                if seq_class_label is not None:
                     output_seq_header = '{}{}{}'.format(output_seq_header, config.fasta_header_field_sep,
-                                                        otl_class_label)
+                                                        seq_class_label)
 
             repos_buffer.add(SeqRecord(export_seq, id = output_seq_header, name = '', description = ''),
-                             seq_db_path, seq_record.id)
+                             seq_db_path, seq_record.description)
 
 export_seq_rec_count = repos_buffer.export(args.output_seq_db_path, not args.redundant)
 
@@ -726,7 +733,8 @@ else:
 ProcLog.export_merge_db_check_logs(output_stream)
 
 if export_seq_rec_count > 0:
-    output_db_stmt = ProcLog.create_summary_stmt(export_seq_rec_count, 'exported to {}'.format(args.output_seq_db_path))
+    output_db_stmt = ProcLog.create_summary_stmt(export_seq_rec_count,
+                                                 'exported to {}'.format(args.output_seq_db_path))
 else:
     output_db_stmt = ProcLog.create_summary_stmt(export_seq_rec_count, 'exported')
 

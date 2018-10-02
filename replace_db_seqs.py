@@ -16,7 +16,7 @@ replace_seq_record_count = 0
 with open(args.replace_seq_file_path, 'rU') as f:
     replace_seq_records = dict()
     for seq_record in SeqIO.parse(f, 'fasta'):
-        replace_seq_records[seq_record.id] = seq_record
+        replace_seq_records[seq_record.description] = seq_record
         replace_seq_record_count += 1
 
 input_seq_record_count = 0
@@ -28,8 +28,8 @@ with open(args.output_seq_db_path, 'w') as fw:
     with open(args.seq_db_path, 'rU') as f:
         for seq_record in SeqIO.parse(f, 'fasta'):
             input_seq_record_count += 1
-            if seq_record.id in replace_seq_records:
-                SeqIO.write(replace_seq_records[seq_record.id], fw, 'fasta')
+            if seq_record.description in replace_seq_records:
+                SeqIO.write(replace_seq_records[seq_record.description], fw, 'fasta')
                 export_seq_record_count += 1
                 replace_count += 1
             else:

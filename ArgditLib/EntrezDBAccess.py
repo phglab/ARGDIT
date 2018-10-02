@@ -8,8 +8,8 @@ from urllib.error import HTTPError, URLError
 import re
 import time
 
-EPOST_FT_BATCH_SIZE = 4000
-EPOST_SEQ_BATCH_SIZE = 4000
+EPOST_FT_BATCH_SIZE = 3000
+EPOST_SEQ_BATCH_SIZE = 3000
 EFETCH_BATCH_SIZE = 500
 MAX_ATTEMPT = 3
 
@@ -131,13 +131,12 @@ Description  : Generic NCBI database searching function via Entrez utilities. Fo
 def _search_entrez(acc_nums, entrez_parser, db_name = 'nucleotide', return_section = 'ft', return_type = 'text',
                    epost_batch_size = EPOST_SEQ_BATCH_SIZE):
     for acc_num_epost_batch in _split_acc_nums_for_epost(acc_nums, epost_batch_size):
-        '''print(acc_num_epost_batch)'''
-        print(len(acc_num_epost_batch))
+        '''print(len(acc_num_epost_batch))'''
         efetch_query_key, web_env, errors = _entrez_post(db_name, acc_num_epost_batch)
         if efetch_query_key is None:
             return
 
-        print('{}, {}'.format(efetch_query_key, web_env))
+        '''print('{}, {}'.format(efetch_query_key, web_env))'''
 
         fetch_start = 0
         fetch_iter = (len(acc_num_epost_batch) + EFETCH_BATCH_SIZE - 1) // EFETCH_BATCH_SIZE

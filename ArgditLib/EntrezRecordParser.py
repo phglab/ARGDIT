@@ -393,7 +393,7 @@ class ProteinSeqParser:
     '''
     def parse(self, handle):
         for seq_record in SeqIO.parse(handle, 'fasta'):
-            protein_acc_num = extract_protein_acc_num(seq_record.id)
+            protein_acc_num = extract_protein_acc_num(seq_record.description)
             self._protein_seqs[protein_acc_num] = seq_record.seq
 
 '''

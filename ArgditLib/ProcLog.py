@@ -10,7 +10,7 @@ Process log class to log and display/export process messages or errors
 INVALID_ACC_NUM_FMT = 1
 ACC_NUM_NOT_FOUND = 2
 '''CDS_NOT_FOUND = 3'''
-FALSE_OTL_ANNOT = 4
+FALSE_SEQ_CLASS = 4
 UNKNOWN_SEQ_TYPE = 5
 '''MIXED_SEQ_TYPE = 6'''
 SEQ_MISMATCH = 7
@@ -19,13 +19,15 @@ REDUNDANT_SEQ = 9
 OBSOLETE_VER = 10
 EXEC_MSG = 11
 EXEC_ERROR = 12
+DB_MERGE_RESULT = 13
 
 DEFAULT_DB_NAME = 'default_db'
 SCHEMA_DB_TAG = '<schema>'
 
 class ProcLog:
     PROTEIN_ID_MAPPING_MSG_TEMPLATE = '{}: Protein accession no. \'{}\' is possibly mapped to \'{}\''
-    CROSS_DB_REDUNDANT_SEQ_MSG_TEMPLATE = 'Skipped redundant sequence {}'
+    MERGE_OUTPUT_SEQ_SRC_MSG_TEMPLATE = 'Sequence \'{}\' exists in the following source database(s):{}'
+    SEQ_SRC_DB_MSG_TEMPLATE = '\t - {} (original sequence header: {}){}'
     CROSS_DB_DUPLICATED_SEQ_HDR_MSG_TEMPLATE = 'Skipped duplicated sequence header {}'
     CROSS_DB_DUPLICATED_AUTOGEN_HDR_MSG_TEMPLATE = \
         'Skipped duplicated auto-generated sequence header {} (original header: {})'
@@ -38,7 +40,7 @@ class ProcLog:
         cls._logs[INVALID_ACC_NUM_FMT] = dict()
         cls._logs[ACC_NUM_NOT_FOUND] = dict()
         '''cls._logs[CDS_NOT_FOUND] = list()'''
-        cls._logs[FALSE_OTL_ANNOT] = dict()
+        cls._logs[FALSE_SEQ_CLASS] = dict()
         cls._logs[UNKNOWN_SEQ_TYPE] = dict()
         '''cls._logs[MIXED_SEQ_TYPE] = list()'''
         cls._logs[SEQ_MISMATCH] = dict()
@@ -47,6 +49,7 @@ class ProcLog:
         cls._logs[OBSOLETE_VER] = dict()
         cls._logs[EXEC_MSG] = dict()
         cls._logs[EXEC_ERROR] = dict()
+        cls._logs[DB_MERGE_RESULT] = list()
         cls._dbs_in_log = set()
         cls._tagged_schema_db_name = None
 
@@ -56,7 +59,7 @@ class ProcLog:
         if db_name not in cls._dbs_in_log:
             cls._logs[INVALID_ACC_NUM_FMT][db_name] = list()
             cls._logs[ACC_NUM_NOT_FOUND][db_name] = list()
-            cls._logs[FALSE_OTL_ANNOT][db_name] = list()
+            cls._logs[FALSE_SEQ_CLASS][db_name] = list()
             cls._logs[UNKNOWN_SEQ_TYPE][db_name] = list()
             cls._logs[SEQ_MISMATCH][db_name] = list()
             cls._logs[DUPLICATED_HEADER][db_name] = list()
@@ -100,8 +103,8 @@ class ProcLog:
     '''Log for non-existing NCBI accession number'''
     log_acc_num_not_found = partialmethod(_log_msg, log_name = ACC_NUM_NOT_FOUND)
     '''log_cds_not_found = partialmethod(_log_msg, log_name = CDS_NOT_FOUND)'''
-    '''Log for false ARG ontology class annotation'''
-    log_false_otl_annot = partialmethod(_log_msg, log_name = FALSE_OTL_ANNOT)
+    '''Log for false sequence class annotation'''
+    log_false_seq_class = partialmethod(_log_msg, log_name = FALSE_SEQ_CLASS)
     '''Log for unknown input sequence type'''
     log_unknown_seq_type = partialmethod(_log_msg, log_name = UNKNOWN_SEQ_TYPE)
     '''log_mixed_seq_type = partialmethod(_log_msg, log_name = MIXED_SEQ_TYPE)'''
@@ -207,9 +210,9 @@ class ProcLog:
     _export_cds_not_found_log = partialmethod(_export_log, log_name = CDS_NOT_FOUND,
                                               log_header = '----- Matching CDS not found -----')
     '''
-    '''Export log for false ARG ontology class annotation'''
-    _export_false_otl_annot_log = partialmethod(_export_log, log_name = FALSE_OTL_ANNOT,
-                                                log_header = '----- Potential incorrect ontology annotation -----')
+    '''Export log for false sequence class annotation'''
+    _export_false_seq_class_log = partialmethod(_export_log, log_name = FALSE_SEQ_CLASS,
+                                                log_header = '----- Potential incorrect sequence classification -----')
     '''Export log for unknown input sequence type'''
     _export_unknown_seq_type_log = partialmethod(_export_log, log_name = UNKNOWN_SEQ_TYPE,
                                                  log_header = '----- Unknown sequence type -----')
@@ -237,17 +240,17 @@ class ProcLog:
 
     '''
     Function name: export_qc_check_logs
-    Inputs       : Output stream, boolean controlling the check of ARG ontology class annotation
+    Inputs       : Output stream, boolean controlling the check of sequence classfication
     Outputs      : Nil
     Description  : Export all logs for ARG database validation, including empty log, to the output
                    stream
     '''
     @classmethod
-    def export_qc_check_logs(cls, output_stream, is_check_otl_annot):
+    def export_qc_check_logs(cls, output_stream, is_check_seq_class):
         cls._export_invalid_acc_num_fmt_log(output_stream, is_export_empty_log = True)
         cls._export_acc_num_not_found_log(output_stream, is_export_empty_log = True)
         '''cls._export_cds_not_found_log(output_stream, has_nt_seq_check)'''
-        cls._export_false_otl_annot_log(output_stream, is_export_empty_log = is_check_otl_annot)
+        cls._export_false_seq_class_log(output_stream, is_export_empty_log = is_check_seq_class)
         cls._export_unknown_seq_type_log(output_stream, is_export_empty_log = True)
         '''cls._export_mixed_seq_type_log(output_stream, True)'''
         cls._export_seq_mismatch_log(output_stream, is_export_empty_log = True)
@@ -258,13 +261,13 @@ class ProcLog:
 
     '''
     Function name: export_qc_check_summary
-    Inputs       : Output stream, total number of sequences, boolean controlling the check of ARG
-                   ontology class annotation, external summary, database name
+    Inputs       : Output stream, total number of sequences, boolean controlling the check of
+                   sequence class annotation, external summary, database name
     Outputs      : Nil
     Description  : Export summary for all logs for a specific database to the output stream
     '''
     @classmethod
-    def export_qc_check_summary(cls, output_stream, total_seq_record_count, is_check_otl_annot,
+    def export_qc_check_summary(cls, output_stream, total_seq_record_count, is_check_seq_class,
                                 ext_summary = None, db_name = DEFAULT_DB_NAME):
         cls._init_logs_for_new_db(db_name)
         summary = list()
@@ -283,9 +286,9 @@ class ProcLog:
             summary.append(summary_stmt)
         '''
 
-        if is_check_otl_annot:
-            summary_stmt = cls.create_summary_stmt(len(cls._logs[FALSE_OTL_ANNOT][db_name]),
-                                                   'with potential incorrect ontology annotation')
+        if is_check_seq_class:
+            summary_stmt = cls.create_summary_stmt(len(cls._logs[FALSE_SEQ_CLASS][db_name]),
+                                                   'with potential incorrect sequence classification')
             summary.append(summary_stmt)
 
         summary_stmt = cls.create_summary_stmt(len(cls._logs[UNKNOWN_SEQ_TYPE][db_name]), 'with unknown sequence type')
@@ -357,19 +360,26 @@ class ProcLog:
         return False
 
     '''
-    Function name: log_cross_db_redundant_seq
-    Inputs       : Mapping between redundant sequence and database containing this sequence
+    Function name: log_merge_db_result
+    Inputs       : Header of the exported sequence, and the mapping between this exported
+                   sequence and databases containing it
     Outputs      : Nil
-    Description  : Log for redundant sequence across two databases
+    Description  : Log for source databases contributing the exported sequence
     '''
     @classmethod
-    def log_cross_db_redundant_seq(cls, seq_record_src_tag):
-        cls.log_exec_msg(cls.CROSS_DB_REDUNDANT_SEQ_MSG_TEMPLATE.format(seq_record_src_tag[2]),
-                         db_name = seq_record_src_tag[1])
+    def log_merge_db_result(cls, exported_seq_header, redundant_seq_rec_src_tags):
+        merge_output_seq_msg = cls.MERGE_OUTPUT_SEQ_SRC_MSG_TEMPLATE.format(exported_seq_header, os.linesep)
+        cls._logs[DB_MERGE_RESULT].append(merge_output_seq_msg)
+
+        for seq_record_src_tag in redundant_seq_rec_src_tags:
+            src_db_name = os.path.basename(seq_record_src_tag[1])
+            seq_src_db_msg = cls.SEQ_SRC_DB_MSG_TEMPLATE.format(src_db_name, seq_record_src_tag[2], os.linesep)
+            cls._logs[DB_MERGE_RESULT].append(seq_src_db_msg)
+
         if hasattr(cls, '_redundant_seq_count'):
-            cls._redundant_seq_count += 1
+            cls._redundant_seq_count += len(redundant_seq_rec_src_tags) - 1
         else:
-            cls._redundant_seq_count = 1
+            cls._redundant_seq_count = len(redundant_seq_rec_src_tags) - 1
 
     '''
     Function name: log_cross_db_duplicated_header
@@ -395,6 +405,21 @@ class ProcLog:
             cls._duplicated_hdr_count = 1
 
     '''
+    Function name: _export_merge_db_result
+    Inputs       : Output stream
+    Outputs      : Nil
+    Description  : Export log for the sequences generated in database merge
+    '''
+    @classmethod
+    def _export_merge_db_result(cls, output_stream):
+        output_stream.writelines('{}{}'.format('----- Database consolidation results -----', os.linesep))
+
+        if len(cls._logs[DB_MERGE_RESULT]) == 0:
+            output_stream.writelines('{}{}{}'.format('Nil', os.linesep, os.linesep))
+        else:
+            output_stream.writelines(cls._logs[DB_MERGE_RESULT])
+
+    '''
     Function name: export_merge_db_check_logs
     Inputs       : Output stream
     Outputs      : Nil
@@ -407,6 +432,7 @@ class ProcLog:
         cls._export_unknown_seq_type_log(output_stream, is_export_empty_log = False)
         cls._export_seq_mismatch_log(output_stream, is_export_empty_log = False)
         cls.export_exec_msg(output_stream, is_export_empty_log = False)
+        cls._export_merge_db_result(output_stream)
 
     '''
     Function name: export_merge_db_summary
