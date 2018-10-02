@@ -16,17 +16,10 @@ Note that although the default translation table used is for bacteria, other tra
 ## Sample consolidated databases
 MEGARes [2] is a consolidated ARG database created from four ARG databases: ARG-ANNOT [3], CARD [4-6], ResFinder [7], and Lahey beta-lactamase archive [8] (NCBI BioProject PRJNA305729 [1]). However, its latest version was released in Dec 2016 since which its source databases have been updated. Therefore, to demonstrate the benefit of ARGDIT in highly automating the ARG database update process, a consolidated database that emsembles MEGARes database has been created from its sources. The source databases were first validated using ARGDIT validation tool, and were then corrected manually according to the validation results. The validated databases were then merged by ARGDIT integration tool into a single database, which was subsequently annotated using NCBI information [1]. The consolidated database is available in two versions:
 
-<<<<<<< HEAD
 * argdit_nt_db.fa
 * argdit_nt_db_no_class.fa
 
 The annotations (i.e. sequence headers) of the first database include predicted (but unverified) ARG class labels defined by MEGARes and the second database does not include any sequence class information. Both versions can be found in the directory "sample_integrated_dbs".
-=======
-* ARGDIT_integrated_DB_with_annotation_and_ontology_class.fa
-* ARGDIT_integrated_DB_with_annotation.fa
-
-The first database contains predicted MEGARes ARG ontology labels in its annotation and the second does not. Both versions and their creation logs can be found in the directory "sample_integrated_dbs".
->>>>>>> a88c3e719fe634c63395d871cab2c1bec2f35e59
 
 ## Database eligibility
 In order to use the data validation and integration tool, the ARG (or other coding/protein sequence) database must be
