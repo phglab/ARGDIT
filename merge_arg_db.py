@@ -664,7 +664,7 @@ for seq_db_path in args.seq_db_paths:
             seq_class_label_map = None
 
         for seq_header in seq_file_parser.get_invalid_acc_num_fmt_seq_rec_ids():
-            ProcLog.log_invalid_acc_num(msg = seq_header, db_name = seq_db_path)
+            ProcLog.log_invalid_acc_num_fmt(msg = seq_header, db_name = seq_db_path)
 
     seq_record_groups = seq_file_parser.get_hybrid_seq_records()
 
