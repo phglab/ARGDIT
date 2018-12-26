@@ -168,7 +168,7 @@ This utility compares the sequence database with its previous version according 
 It is sometimes (but not often) possible to have incomplete data retrieval from NCBI repositories due to server-side issues such as heavy workload. This means information for some nucleotide/protein accession numbers cannot be retrieved at the moment; the outcome is like these accession numbers are not present in the NCBI repositories. When many sequences are spuriously reported as having their accession numbers not found and/or sequence mismatches, it is advised to try using the database validation and the integration tools later.
 
 ## Citation
-TBC
+Chiu J.K.H., Ong R.T.H.; ARGDIT: A Validation and Integration Toolkit for Antimicrobial Resistance Gene Databases, Bioinformatics, bty987, https://doi.org/10.1093/bioinformatics/bty987
 
 ## References
 [1] NCBI Resource Coordinators. Database Resources of the National Center for Biotechnology Information. Nucleic Acids Research 2017;45(D1):D12-D17.  
