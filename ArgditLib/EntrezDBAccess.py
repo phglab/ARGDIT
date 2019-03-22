@@ -4,6 +4,7 @@ from Bio import Entrez
 from Bio import SeqIO
 from .EntrezRecordParser import *
 from .ProcLog import ProcLog
+from .Utils import split_wgs_acc_nums
 from urllib.error import HTTPError, URLError
 import re
 import time
@@ -25,14 +26,15 @@ def set_entrez_email(email):
     Entrez.email = email
 
 '''
-Function name: _split_acc_nums_for_epost
-Inputs       : Query accession numbers for epost action, maximum accession number count for batch
+Function name: _split_acc_nums_into_batch
+Inputs       : Query accession numbers for epost/efetch action, maximum accession number count in a
+               batch
 Outputs      : Batches of accession numbers
 Description  : Splits the query accession numbers into disjoint accession number sets (batches), of
                which the maximum batch size is limited. This avoids too many accession numbers in a
-               single Entrez epost query
+               single Entrez epost/efetch query
 '''
-def _split_acc_nums_for_epost(acc_nums, epost_batch_size = EPOST_SEQ_BATCH_SIZE):
+def _split_acc_nums_into_batch(acc_nums, batch_size = EFETCH_BATCH_SIZE):
     if type(acc_nums) is set:
         acc_num_set = acc_nums
     else:
@@ -44,7 +46,7 @@ def _split_acc_nums_for_epost(acc_nums, epost_batch_size = EPOST_SEQ_BATCH_SIZE)
     extract_start = 0
 
     while extract_start < acc_num_count:
-        extract_end = min((extract_start + epost_batch_size), acc_num_count)
+        extract_end = min((extract_start + batch_size), acc_num_count)
         acc_num_batches.append(acc_num_list[extract_start:extract_end])
         extract_start = extract_end
 
@@ -86,14 +88,14 @@ def _entrez_post(db_name, acc_nums):
         return None, None, None
 
 '''
-Function name: _entrez_fetch
+Function name: _entrez_fetch_hist
 Inputs       : NCBI database name, query key, web environment, record section to fetch, data type to
                fetch, record position to start fetching
 Outputs      : Data handle or None
-Description  : Performs the Entrez efetch action and returns the data handle for subsequent parsing, or
-               None if error occurs
+Description  : Performs the Entrez efetch action after epost and returns the data handle for subsequent
+               parsing, or None if error occurs
 '''
-def _entrez_fetch(db_name, efetch_query_key, web_env, return_section, return_type, fetch_start):
+def _entrez_fetch_hist(db_name, efetch_query_key, web_env, return_section, return_type, fetch_start):
     attempt = 0
     while attempt < MAX_ATTEMPT:
         try:
@@ -118,19 +120,58 @@ def _entrez_fetch(db_name, efetch_query_key, web_env, return_section, return_typ
         return None
 
 '''
+Function name: _entrez_fetch
+Inputs       : NCBI database name, query accession numbers, record section to fetch, data type to
+               fetch
+Outputs      : Data handle or None
+Description  : Performs the Entrez efetch action and returns the data handle for subsequent parsing, or
+               None if error occurs
+'''
+def _entrez_fetch(db_name, acc_nums, return_section, return_type):
+    if Entrez.email is None:
+        ProcLog.log_exec_error('Email address for Entrez is not set')
+        return None, None, None
+
+    attempt = 0
+    while attempt < MAX_ATTEMPT:
+        try:
+            handle = Entrez.efetch(db = db_name, id = ','.join(acc_nums), rettype = return_section,
+                                   retmode = return_type)
+            return handle
+        except HTTPError as http_error:
+            if 400 <= http_error.code <= 599:
+                time.sleep(20)
+                attempt += 1
+                continue
+            else:
+                ProcLog.log_exec_error('efetch(): {}'.format(http_error.reason))
+                return None
+        except URLError as url_error:
+            ProcLog.log_exec_error('efetch(): {}'.format(str(url_error.reason)))
+            return None
+
+    if attempt == MAX_ATTEMPT:
+        ProcLog.log_exec_error('Attempted efetch() 3 times and failed')
+        return None
+
+'''
 Function name: _search_entrez
 Inputs       : Query accession numbers, data handle parser, NCBI database name, record section to
                fetch, data type to fetch, maximum accession number count for batch
 Outputs      : Nil
-Description  : Generic NCBI database searching function via Entrez utilities. For each batch of query
-               accession numbers, it first invokes entrez_post to obtain the query key and web
-               environment, and uses them to invoke entrez_fetch to obtain the handle for the data
-               returned. The parser specified in the input argument then parses the returned handle
-               to extract the required data
+Description  : Generic NCBI database searching function via Entrez utilities. It first splits the query
+               accession numbers into WGS and non-WGS accession numbers. For each batch of query
+               non-WGS accession numbers, it invokes entrez_post to obtain the query key and web
+               environment, and then uses them to invoke entrez_fetch_hist to obtain the handle for the
+               data returned. For WGS accession numbers, entrez_fetch is called to invoke Entrez efetch
+               action directly to obtain the data handle. The parser specified in the input argument
+               then parses the returned handle to extract the required data
 '''
 def _search_entrez(acc_nums, entrez_parser, db_name = 'nucleotide', return_section = 'ft', return_type = 'text',
                    epost_batch_size = EPOST_SEQ_BATCH_SIZE):
-    for acc_num_epost_batch in _split_acc_nums_for_epost(acc_nums, epost_batch_size):
+    wgs_acc_nums, non_wgs_acc_nums = split_wgs_acc_nums(acc_nums)
+
+    for acc_num_epost_batch in _split_acc_nums_into_batch(non_wgs_acc_nums, epost_batch_size):
         '''print(len(acc_num_epost_batch))'''
         efetch_query_key, web_env, errors = _entrez_post(db_name, acc_num_epost_batch)
         if efetch_query_key is None:
@@ -143,18 +184,29 @@ def _search_entrez(acc_nums, entrez_parser, db_name = 'nucleotide', return_secti
         i = 0
 
         while i < fetch_iter:
-            handle = _entrez_fetch(db_name, efetch_query_key, web_env, return_section, return_type, fetch_start)
+            handle = _entrez_fetch_hist(db_name, efetch_query_key, web_env, return_section, return_type, fetch_start)
             if handle is None:
                 return
 
             entrez_parser.parse(handle)
             if hasattr(entrez_parser, 'is_parse_complete') and not entrez_parser.is_parse_complete:
                 return
-                
+
             fetch_start += EFETCH_BATCH_SIZE
             i += 1
 
         time.sleep(3)
+
+    for acc_num_efetch_batch in _split_acc_nums_into_batch(wgs_acc_nums, EFETCH_BATCH_SIZE):
+        handle = _entrez_fetch(db_name, acc_num_efetch_batch, return_section, return_type)
+        if handle is None:
+            return
+
+        entrez_parser.parse(handle)
+        if hasattr(entrez_parser, 'is_parse_complete') and not entrez_parser.is_parse_complete:
+            return
+
+        time.sleep(5)
 
 '''
 Function name: search_target_cds_by_nt_acc_num
@@ -200,6 +252,41 @@ def search_protein_seqs(protein_acc_nums):
     return protein_seq_parser.get_protein_seqs()
 
 '''
+Function name: _search_seq_status
+Inputs       : Nucleotide/Protein accession numbers and the biological sequence (either nucleotide
+               or protein) database to retrieve
+Outputs      : Sequence accession numbers, sequence current status, and the accession numbers of
+               the replacing sequences (if applicable)
+Description  : Base function to retrieve the current status of the input accession numbers
+'''
+def _search_seq_status(acc_nums, db_name):
+    doc_summary_parser = DocSummaryParser()
+    _search_entrez(acc_nums = acc_nums, entrez_parser = doc_summary_parser, db_name = db_name,
+                   return_section = 'docsum', return_type = 'xml')
+
+    return doc_summary_parser.get_seq_status()
+
+'''
+Function name: search_nucleotide_seq_status
+Inputs       : Nucleotide accession numbers
+Outputs      : Sequence status, and the accession numbers of the replacing nucleotide sequences (if
+               applicable)
+Description  : Retrieve the current status of the input nucleotide accession numbers
+'''
+def search_nucleotide_seq_status(nt_acc_nums):
+    return _search_seq_status(acc_nums = nt_acc_nums, db_name = 'nucleotide')
+
+'''
+Function name: search_protein_seq_status
+Inputs       : Protein accession numbers
+Outputs      : Sequence status, and the accession numbers of the replacing protein sequences (if
+               applicable)
+Description  : Retrieve the current status of the input protein accession numbers
+'''
+def search_protein_seq_status(protein_acc_nums):
+    return _search_seq_status(acc_nums = protein_acc_nums, db_name = 'protein')
+
+'''
 def search_protein_info(protein_acc_nums):
     protein_seq_record_parser = ProteinSeqRecordParser()
     _search_entrez(acc_nums = protein_acc_nums, entrez_parser = protein_seq_record_parser, db_name = 'protein',
@@ -216,14 +303,14 @@ def _search_entrez_hist(efetch_query_key, web_env, query_item_count, entrez_pars
     i = 0
 
     while i < fetch_iter:
-        handle = _entrez_fetch(db_name, efetch_query_key, web_env, return_section, return_type, fetch_start)
+        handle = _entrez_fetch_hist(db_name, efetch_query_key, web_env, return_section, return_type, fetch_start)
         if handle is None:
             return
 
         entrez_parser.parse(handle)
         if hasattr(entrez_parser, 'is_parse_complete') and not entrez_parser.is_parse_complete:
             return
-                
+
         fetch_start += EFETCH_BATCH_SIZE
         i += 1
 
@@ -251,7 +338,7 @@ def search_protein_seqs_hist(efetch_query_key, web_env, query_item_count):
     _search_entrez_hist(efetch_query_key, web_env, query_item_count, entrez_parser = protein_seq_parser,
                         db_name = 'protein', return_section = 'fasta', return_type = 'text')
 
-    return protein_seq_parser.get_protein_seqs()    
+    return protein_seq_parser.get_protein_seqs()
 
 '''
 def search_protein_info_hist(efetch_query_key, web_env, query_item_count):

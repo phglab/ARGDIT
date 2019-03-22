@@ -171,16 +171,21 @@ if len(cds_seq_len_filters) > 0:
         ProcLog.export_exec_error(sys.stdout)
         sys.exit()
 
-    '''Add the protein accession numbers of the target CDS regions to the NCBI protein query'''
-    query_protein_acc_nums.update(target_cds_protein_acc_nums)
+    '''Retrieve the nucleotide sequence status'''
+    doc_sum_nt_acc_nums = list(set(nt_id_nt_seq_records.keys()) | set(nt_id_protein_seq_records.keys()))
+    nt_seq_status = EntrezDBAccess.search_nucleotide_seq_status(doc_sum_nt_acc_nums)
+
+    if ProcLog.has_exec_error():
+        ProcLog.export_exec_error(sys.stdout)
+        sys.exit()
 
     '''Keep the latest nucleotide accession version to determine potential obsolete sequences'''
     latest_ver_nt_acc_num_map = dict()
     for nt_acc_num in target_cds_region_grps.keys():
         latest_ver_nt_acc_num_map[Utils.trim_version(nt_acc_num)] = nt_acc_num
 
-    '''Store (non-versioned) nucleotide accession numbers of the target CDS regions'''
-    matched_nt_non_ver_acc_nums = latest_ver_nt_acc_num_map.keys()
+    '''Add the protein accession numbers of the target CDS regions to the NCBI protein query'''
+    query_protein_acc_nums.update(target_cds_protein_acc_nums)
 
 '''Add the protein accession numbers of the ARG sequences to the NCBI protein query'''
 protein_id_nt_seq_records = seq_file_parser.get_protein_id_nt_seq_records()
@@ -198,19 +203,24 @@ if ProcLog.has_exec_error():
     ProcLog.export_exec_error(sys.stdout)
     sys.exit()
 
-'''
-It is possible that some retrieved records are identifed by non-accession format identifiers, hence
-they need to be extracted for special matching
-'''
-non_acc_fmt_protein_ids = set(genbank_protein_info_set.keys()) - query_protein_acc_nums
+doc_sum_protein_acc_nums = list(set(protein_id_nt_seq_records.keys()) | set(protein_id_protein_seq_records.keys()))
+protein_seq_status = EntrezDBAccess.search_protein_seq_status(doc_sum_protein_acc_nums)
+
+if ProcLog.has_exec_error():
+    ProcLog.export_exec_error(sys.stdout)
+    sys.exit()
 
 '''Keep the latest protein accession version to determine potential obsolete sequences'''
 latest_ver_protein_acc_num_map = dict()
 for protein_acc_num in genbank_protein_info_set.keys():
     latest_ver_protein_acc_num_map[Utils.trim_version(protein_acc_num)] = protein_acc_num
 
-'''Store (non-versioned) protein accession numbers of the target CDS regions'''
-matched_protein_non_ver_acc_nums = latest_ver_protein_acc_num_map.keys()
+'''
+It is possible that some retrieved records are identifed by non-accession format identifiers, hence
+they need to be extracted for special matching
+'''
+non_acc_fmt_protein_ids = set(map(Utils.trim_version, genbank_protein_info_set.keys())) - \
+    set(map(Utils.trim_version, query_protein_acc_nums))
 
 '''Validate the sequences of the four categories'''
 seq_class_protein_seq_record_grps = dict()
@@ -225,14 +235,19 @@ for nt_acc_num, nt_seq_records in nt_id_nt_seq_records.items():
     Accession number not found either because this accession number does not exist, or no target CDS
     region can be found (i.e. no CDS region matches the predicted CDS sequence lengths)
     '''
-    if nt_non_ver_acc_num not in matched_nt_non_ver_acc_nums:
+    if nt_non_ver_acc_num not in latest_ver_nt_acc_num_map:
         for nt_seq_record in nt_seq_records:
             ProcLog.log_acc_num_not_found(msg = nt_seq_record.description)
-    
+
         continue
 
     latest_ver_nt_acc_num = latest_ver_nt_acc_num_map[nt_non_ver_acc_num]
-    is_ver_obsolete = (nt_acc_num != latest_ver_nt_acc_num and not Utils.is_non_version_acc_num(nt_acc_num))
+    if nt_acc_num in nt_seq_status:
+        seq_status, replace_nt_acc_num = nt_seq_status[nt_acc_num]
+        is_ver_obsolete = Utils.is_obsolete_ncbi_seq(seq_status)
+    else:
+        is_ver_obsolete = (nt_acc_num != latest_ver_nt_acc_num and not Utils.is_non_version_acc_num(nt_acc_num))
+        replace_nt_acc_num = None
 
     for nt_seq_record in nt_seq_records:
         '''
@@ -247,10 +262,10 @@ for nt_acc_num, nt_seq_records in nt_id_nt_seq_records.items():
                                                      genbank_protein_info_set, non_acc_fmt_protein_ids)
 
         if translated_protein_info is None:
-            ProcLog.log_seq_mismatch(nt_seq_record.description, is_ver_obsolete)
+            ProcLog.log_seq_mismatch(nt_seq_record.description, is_ver_obsolete, replace_nt_acc_num)
         else:
             if is_ver_obsolete:
-                ProcLog.log_obsolete_ver(msg = nt_seq_record.description)
+                ProcLog.log_obsolete_ver(nt_seq_record.description, replace_nt_acc_num)
 
             if non_acc_fmt_protein_id_mapping is not None:
                 ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(nt_seq_record.description,
@@ -285,14 +300,19 @@ for nt_acc_num, protein_seq_records in nt_id_protein_seq_records.items():
     Accession number not found either because this accession number does not exist, or no target CDS
     region can be found (i.e. no CDS region matches the predicted CDS sequence lengths)
     '''
-    if nt_non_ver_acc_num not in matched_nt_non_ver_acc_nums:
+    if nt_non_ver_acc_num not in latest_ver_nt_acc_num_map:
         for protein_seq_record in protein_seq_records:
             ProcLog.log_acc_num_not_found(msg = protein_seq_record.description)
 
         continue
 
     latest_ver_nt_acc_num = latest_ver_nt_acc_num_map[nt_non_ver_acc_num]
-    is_ver_obsolete = (nt_acc_num != latest_ver_nt_acc_num and not Utils.is_non_version_acc_num(nt_acc_num))
+    if nt_acc_num in nt_seq_status:
+        seq_status, replace_nt_acc_num = nt_seq_status[nt_acc_num]
+        is_ver_obsolete = Utils.is_obsolete_ncbi_seq(seq_status)
+    else:
+        is_ver_obsolete = (nt_acc_num != latest_ver_nt_acc_num and not Utils.is_non_version_acc_num(nt_acc_num))
+        replace_nt_acc_num = None
 
     for protein_seq_record in protein_seq_records:
         protein_seq_str = str(protein_seq_record.seq)
@@ -324,7 +344,7 @@ for nt_acc_num, protein_seq_records in nt_id_protein_seq_records.items():
 
         if is_protein_seq_matched:
             if is_ver_obsolete:
-                ProcLog.log_obsolete_ver(msg = protein_seq_record.description)
+                ProcLog.log_obsolete_ver(protein_seq_record.description, replace_nt_acc_num)
 
             '''
             Group the ARG protein sequence according to the sequence class for subsequent outlier
@@ -334,20 +354,28 @@ for nt_acc_num, protein_seq_records in nt_id_protein_seq_records.items():
                 Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
                                                  class_label_field_nums, config)
         else:
-            ProcLog.log_seq_mismatch(protein_seq_record.description, is_ver_obsolete)
+            ProcLog.log_seq_mismatch(protein_seq_record.description, is_ver_obsolete, replace_nt_acc_num)
 
 '''Validate ARG nucleotide sequences annotated by NCBI protein accession numbers'''
 for protein_acc_num, nt_seq_records in protein_id_nt_seq_records.items():
     protein_non_ver_acc_num = Utils.trim_version(protein_acc_num)
 
-    if protein_non_ver_acc_num in matched_protein_non_ver_acc_nums:
+    if protein_acc_num in protein_seq_status:
+        seq_status, replace_protein_acc_num = protein_seq_status[protein_acc_num]
+        is_ver_obsolete = Utils.is_obsolete_ncbi_seq(seq_status)
+
+    if protein_non_ver_acc_num in latest_ver_protein_acc_num_map:
         latest_ver_protein_acc_num = latest_ver_protein_acc_num_map[protein_non_ver_acc_num]
-        is_ver_obsolete = (protein_acc_num != latest_ver_protein_acc_num and \
-                           not Utils.is_non_version_acc_num(protein_acc_num))
+        if protein_acc_num not in protein_seq_status:
+            is_ver_obsolete = (protein_acc_num != latest_ver_protein_acc_num and \
+                               not Utils.is_non_version_acc_num(protein_acc_num))
+            replace_protein_acc_num = None
     else:
         latest_ver_protein_acc_num = None
-        is_ver_obsolete = False
-       
+        if protein_acc_num not in protein_seq_status:
+            is_ver_obsolete = False
+            replace_protein_acc_num = None
+
     for nt_seq_record in nt_seq_records:
         nt_seq_str = str(nt_seq_record.seq)
         '''Translate the ARG nucleotide sequence and obtain products from all six frames'''
@@ -365,7 +393,8 @@ for protein_acc_num, nt_seq_records in protein_id_nt_seq_records.items():
                                                                               genbank_protein_info_set,
                                                                               non_acc_fmt_protein_ids)
             if matched_protein_id is None:
-                is_protein_seq_matched = False
+                ProcLog.log_acc_num_not_found(msg = nt_seq_record.description)
+                continue
             else:
                 ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(nt_seq_record.description,
                                                                             protein_acc_num, matched_protein_id))
@@ -373,7 +402,7 @@ for protein_acc_num, nt_seq_records in protein_id_nt_seq_records.items():
 
         if is_protein_seq_matched:
             if is_ver_obsolete:
-                ProcLog.log_obsolete_ver(msg = nt_seq_record.description)
+                ProcLog.log_obsolete_ver(nt_seq_record.description, replace_protein_acc_num)
 
             '''
             Group the protein product according to the sequence class for subsequent outlier
@@ -391,23 +420,31 @@ for protein_acc_num, nt_seq_records in protein_id_nt_seq_records.items():
                 Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
                                                  class_label_field_nums, config)
         else:
-            ProcLog.log_seq_mismatch(nt_seq_record.description, is_ver_obsolete)
+            ProcLog.log_seq_mismatch(nt_seq_record.description, is_ver_obsolete, replace_protein_acc_num)
 
 '''Validate ARG protein sequences annotated by NCBI protein accession numbers'''
 for protein_acc_num, protein_seq_records in protein_id_protein_seq_records.items():
     protein_non_ver_acc_num = Utils.trim_version(protein_acc_num)
 
-    if protein_non_ver_acc_num in matched_protein_non_ver_acc_nums:
+    if protein_acc_num in protein_seq_status:
+        seq_status, replace_protein_acc_num = protein_seq_status[protein_acc_num]
+        is_ver_obsolete = Utils.is_obsolete_ncbi_seq(seq_status)
+
+    if protein_non_ver_acc_num in latest_ver_protein_acc_num_map:
         latest_ver_protein_acc_num = latest_ver_protein_acc_num_map[protein_non_ver_acc_num]
-        is_ver_obsolete = (protein_acc_num != latest_ver_protein_acc_num and \
-                           not Utils.is_non_version_acc_num(protein_acc_num))
+        if protein_acc_num not in protein_seq_status:
+            is_ver_obsolete = (protein_acc_num != latest_ver_protein_acc_num and \
+                               not Utils.is_non_version_acc_num(protein_acc_num))
+            replace_protein_acc_num = None
     else:
         latest_ver_protein_acc_num = None
-        is_ver_obsolete = False
+        if protein_acc_num not in protein_seq_status:
+            is_ver_obsolete = False
+            replace_protein_acc_num = None
 
     for protein_seq_record in protein_seq_records:
         protein_seq_str = str(protein_seq_record.seq)
-        
+
         if latest_ver_protein_acc_num is not None:
             genbank_protein_info = genbank_protein_info_set[latest_ver_protein_acc_num]
             is_protein_seq_matched = (protein_seq_str == genbank_protein_info.seq_str)
@@ -420,7 +457,8 @@ for protein_acc_num, protein_seq_records in protein_id_protein_seq_records.items
                                                                               genbank_protein_info_set,
                                                                               non_acc_fmt_protein_ids)
             if matched_protein_id is None:
-                is_protein_seq_matched = False
+                ProcLog.log_acc_num_not_found(msg = protein_seq_record.description)
+                continue
             else:
                 ProcLog.log_exec_msg(protein_id_mapping_msg_template.format(protein_seq_record.description,
                                                                             protein_acc_num, matched_protein_id))
@@ -428,7 +466,7 @@ for protein_acc_num, protein_seq_records in protein_id_protein_seq_records.items
 
         if is_protein_seq_matched:
             if is_ver_obsolete:
-                ProcLog.log_obsolete_ver(msg = protein_seq_record.description)
+                ProcLog.log_obsolete_ver(protein_seq_record.description, replace_protein_acc_num)
 
             '''
             Group the ARG protein sequence according to the sequence class for subsequent outlier
@@ -438,7 +476,7 @@ for protein_acc_num, protein_seq_records in protein_id_protein_seq_records.items
                 Utils.group_protein_by_seq_class(seq_class_protein_seq_record_grps, protein_seq_record,
                                                  class_label_field_nums, config)
         else:
-            ProcLog.log_seq_mismatch(protein_seq_record.description, is_ver_obsolete)
+            ProcLog.log_seq_mismatch(protein_seq_record.description, is_ver_obsolete, replace_protein_acc_num)
 
 if is_check_seq_class:
     cpu_count = len(os.sched_getaffinity(0))

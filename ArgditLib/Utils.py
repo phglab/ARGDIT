@@ -1,7 +1,8 @@
 '''Module for the utility functions used by ARGDIT tools'''
 
-from .Constants import NT_ACC_NUM_EMBED_PATTERN, PROTEIN_ACC_NUM_EMBED_PATTERN, IUPAC_DNA_STR_PATTERN, \
-IUPAC_PROTEIN_STR_PATTERN, IUPAC_AMBIG_DNA_BASES, IUPAC_AMBIG_PROTEIN_BASES
+from .Constants import NT_ACC_NUM_EMBED_PATTERN, PROTEIN_ACC_NUM_EMBED_PATTERN, WGS_ACC_NUM_PATTERN, \
+     IUPAC_DNA_STR_PATTERN, IUPAC_PROTEIN_STR_PATTERN, IUPAC_AMBIG_DNA_BASES, IUPAC_AMBIG_PROTEIN_BASES, \
+     NCBI_LIVE_SEQ_STATUS
 from .ProcLog import ProcLog
 from functools import partial
 import os
@@ -91,6 +92,24 @@ def is_non_version_acc_num(acc_num):
     return (acc_num.find('.') == -1)
 
 '''
+Function name: split_wgs_acc_num
+Inputs       : Nucleotide accession numbers
+Outputs      : WGS accession number list and non-WGS accession number list
+Description  : Extracts WGS accession numbers from the input nucleotide accession numbers
+'''
+def split_wgs_acc_nums(nt_acc_nums):
+    wgs_acc_nums = list()
+    non_wgs_acc_nums = list()
+
+    for nt_acc_num in nt_acc_nums:
+        if re.match(WGS_ACC_NUM_PATTERN, nt_acc_num):
+            wgs_acc_nums.append(nt_acc_num)
+        else:
+            non_wgs_acc_nums.append(nt_acc_num)
+
+    return (wgs_acc_nums, non_wgs_acc_nums)
+
+'''
 Function name: check_seq_type
 Inputs       : Sequence string
 Outputs      : Sequence type (NT/AA/empty string)
@@ -110,7 +129,7 @@ def check_seq_type(seq_str):
         unambig_protein_seq_str = re.sub(IUPAC_AMBIG_PROTEIN_BASES, '', seq_str)
         if len(unambig_protein_seq_str) / len(seq_str) >= 0.95:
             return 'AA'
-    
+
     return ''
 
 '''
@@ -234,7 +253,7 @@ def extract_seq_class_by_fields(fasta_header, extract_index_list, org_sep, new_s
     header_field_range =  set(range(-1 * len(header_fields), len(header_fields)))
     if not (set(extract_index_list) <= header_field_range):
         return None
-    
+
     seq_class_label = None
 
     for extract_index in extract_index_list:
@@ -301,3 +320,13 @@ def is_duplicated_item(item_to_check, checked_items):
     else:
         checked_items.add(item_to_check)
         return False
+
+'''
+Function name: is_obsolete_ncbi_seq
+Input        : sequence status
+Output       : True or False
+Description  : Checks whether the input sequence status refers to a live sequence in the
+               NCBI repository
+'''
+def is_obsolete_ncbi_seq(seq_status):
+    return seq_status != NCBI_LIVE_SEQ_STATUS

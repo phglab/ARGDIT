@@ -36,10 +36,10 @@ class EPostParser:
         query_key = None
         web_env = None
         errors = None
-        
+
         xml_tree = ElementTree.parse(handle)
         root_node = xml_tree.getroot()
-        
+
         for child_node in root_node:
             if child_node.tag == 'QueryKey':
                 query_key = child_node.text
@@ -128,7 +128,7 @@ class FeatTblCDSParser:
     Description  : Parses the data handle to extract all CDS information, and retains those matching
                    the CDS sequence length filter, if any
     '''
-    def parse(self, ft_handle):       
+    def parse(self, ft_handle):
         nt_acc_num = None
         cds_region = CDSRegion()
         cds_seq_len_filter = None
@@ -395,6 +395,58 @@ class ProteinSeqParser:
         for seq_record in SeqIO.parse(handle, 'fasta'):
             protein_acc_num = extract_protein_acc_num(seq_record.description)
             self._protein_seqs[protein_acc_num] = seq_record.seq
+
+'''
+Document summary parser class to keep track of the current status (e.g. live/replaced/obsolete)
+from the data handle returned from the Entrez efetch function
+
+---Attributes---
+seq_status: Current status of the nucleotide/protein sequence
+'''
+class DocSummaryParser():
+    '''Constructor'''
+    def __init__(self):
+        self._seq_status = dict()
+
+    def get_seq_status(self):
+        return self._seq_status
+
+    '''
+    Function name: parse
+    Inputs       : Document summary data handle
+    Outputs      : None
+    Description  : Parses the data handle to identify obsolete (i.e. non-live) sequences from
+                   the retrieved document summary. The data fetched is in XML format
+    '''
+    def parse(self, handle):
+        xml_tree = ElementTree.parse(handle)
+        root_node = xml_tree.getroot()
+
+        for doc_summary_node in root_node:
+            acc_num = None
+            seq_status = None
+            replace_seq_acc_num = ''
+
+            for item_node in doc_summary_node.findall('Item'):
+                item_node_name = item_node.get('Name', '')
+                if item_node_name == 'AccessionVersion':
+                    acc_num = item_node.text
+                elif item_node_name == 'Status':
+                    seq_status = item_node.text
+                elif item_node_name == 'ReplacedBy':
+                    replace_seq_acc_num = item_node.text
+
+            if acc_num is not None and seq_status is not None:
+                self._seq_status[acc_num] = (seq_status, replace_seq_acc_num)
+                '''
+                Sequence update (i.e. incrementing version number for the same accession) is only
+                found for versioned query accession number. Live sequence, sequence suppression,
+                and sequence replacement (a completely different accession) may be associated with
+                both versioned and non-versioned accession numbers.
+                '''
+                if replace_seq_acc_num is None or replace_seq_acc_num == '' or \
+                    trim_version(acc_num) != trim_version(replace_seq_acc_num):
+                    self._seq_status[trim_version(acc_num)] = self._seq_status[acc_num]
 
 '''
 class ProteinSummaryParser:

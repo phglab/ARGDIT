@@ -110,8 +110,6 @@ class ProcLog:
     '''log_mixed_seq_type = partialmethod(_log_msg, log_name = MIXED_SEQ_TYPE)'''
     '''Log for duplicated sequence header for two sequences'''
     log_duplicated_header = partialmethod(_log_msg, log_name = DUPLICATED_HEADER)
-    '''Log for obsolete NCBI accession version for sequence'''
-    log_obsolete_ver = partialmethod(_log_msg, log_name = OBSOLETE_VER)
     '''Log for execution message'''
     log_exec_msg = partialmethod(_log_msg, log_name = EXEC_MSG)
     '''Log for execution error'''
@@ -121,21 +119,46 @@ class ProcLog:
 
     '''
     Function name: log_seq_mismatch
-    Inputs       : Sequence Id, obsolete NCBI accession version flag, database name, boolean indicating
-                   schema database
+    Inputs       : Sequence Id, obsolete NCBI accession version flag, replacing sequence accssion no.,
+                   database name, boolean indicating schema database
     Outputs      : Nil
     Description  : Log for sequence mismatch for a specific database
     '''
     @classmethod
-    def log_seq_mismatch(cls, seq_id, is_obsolete_ver, db_name = DEFAULT_DB_NAME, is_for_schema_db = False):
+    def log_seq_mismatch(cls, seq_id, is_obsolete_ver, replace_seq_acc_num = None, db_name = DEFAULT_DB_NAME,
+                         is_for_schema_db = False):
         if is_for_schema_db:
             db_name = cls._tag_schema_db(db_name)
 
         cls._init_logs_for_new_db(db_name)
         if is_obsolete_ver:
-            cls._logs[SEQ_MISMATCH][db_name].append('{} (Note: Obsolete sequence){}'.format(seq_id, os.linesep))
+            if replace_seq_acc_num is None or replace_seq_acc_num == '':
+                cls._logs[SEQ_MISMATCH][db_name].append('{} (Note: Obsolete sequence){}'.format(seq_id, os.linesep))
+            else:
+                cls._logs[SEQ_MISMATCH][db_name].append('{} (Note: Replaced by {}){}'.format(seq_id,
+                                                                                             replace_seq_acc_num,
+                                                                                             os.linesep))
         else:
             cls._logs[SEQ_MISMATCH][db_name].append('{}{}'.format(seq_id, os.linesep))
+
+    '''
+    Function name: log_obsolete_ver
+    Inputs       : Sequence Id, replacing sequence accssion no., database name,
+                   boolean indicating schema database
+    Outputs      : Nil
+    Description  : Log for obsolete sequence for a specific database
+    '''
+    @classmethod
+    def log_obsolete_ver(cls, seq_id, replace_seq_acc_num = None, db_name = DEFAULT_DB_NAME, is_for_schema_db = False):
+        if is_for_schema_db:
+            db_name = cls._tag_schema_db(db_name)
+
+        cls._init_logs_for_new_db(db_name)
+        if replace_seq_acc_num is None or replace_seq_acc_num == '':
+            cls._logs[OBSOLETE_VER][db_name].append('{} (Obsolete sequence){}'.format(seq_id, os.linesep))
+        else:
+            cls._logs[OBSOLETE_VER][db_name].append('{} (Replaced by {}){}'.format(seq_id, replace_seq_acc_num,
+                                                                                   os.linesep))
 
     '''
     Function name: log_redundant_seq
@@ -152,9 +175,9 @@ class ProcLog:
 
         cls._init_logs_for_new_db(db_name)
         if is_rev_comp:
-            redundant_seq_msg = '{} (reverse complement of {}){}'.format(seq_id, redundant_seq_id, os.linesep)
+            redundant_seq_msg = '{} (Reverse complement of {}){}'.format(seq_id, redundant_seq_id, os.linesep)
         else:
-            redundant_seq_msg = '{} (redundant with {}){}'.format(seq_id, redundant_seq_id, os.linesep)
+            redundant_seq_msg = '{} (Redundant with {}){}'.format(seq_id, redundant_seq_id, os.linesep)
 
         cls._logs[REDUNDANT_SEQ][db_name].append(redundant_seq_msg)
 
@@ -177,7 +200,7 @@ class ProcLog:
                 db_msg_log.sort()
                 msg_log += db_msg_log
                 msg_log.append(os.linesep)
-        
+
         is_print_db_name = (len(cls._dbs_in_log) > 1)
 
         for db_name in sorted(cls._dbs_in_log):
@@ -187,7 +210,7 @@ class ProcLog:
 
             if is_print_db_name:
                 msg_log.append('For {}:{}'.format(db_name, os.linesep))
-                
+
             db_msg_log.sort()
             msg_log += db_msg_log
             msg_log.append(os.linesep)
@@ -204,8 +227,9 @@ class ProcLog:
     _export_invalid_acc_num_fmt_log = partialmethod(_export_log, log_name = INVALID_ACC_NUM_FMT,
                                                     log_header = '----- No valid accession number format -----')
     '''Export log for non-existing NCBI accession number'''
+    log_header_txt = '----- Accession numbers removed/Matching CDS not found -----'
     _export_acc_num_not_found_log = partialmethod(_export_log, log_name = ACC_NUM_NOT_FOUND,
-                                                  log_header = '----- Accession numbers removed/not found -----')
+                                                  log_header = log_header_txt)
     '''
     _export_cds_not_found_log = partialmethod(_export_log, log_name = CDS_NOT_FOUND,
                                               log_header = '----- Matching CDS not found -----')
@@ -347,7 +371,7 @@ class ProcLog:
     '''
     Function name: has_exec_error
     Inputs       : Database name
-    Outputs      : Boolean indicating occurrence of execution error 
+    Outputs      : Boolean indicating occurrence of execution error
     Description  : Check whether execution error has occurred for a particular database
     '''
     @classmethod
@@ -495,7 +519,7 @@ class ProcLog:
             redundant_seq_stmt = ProcLog.create_summary_stmt(cls._redundant_seq_count, 'found, skipped', 'redundant')
         else:
             redundant_seq_stmt = ProcLog.create_summary_stmt(0, 'found, skipped', 'redundant')
-            
+
         summary.append(redundant_seq_stmt)
 
         if hasattr(cls, '_duplicated_hdr_count'):
