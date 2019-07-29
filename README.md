@@ -5,7 +5,7 @@ The Antimicrobial Resistance Gene Data Integration Toolkit (ARGDIT) consists of 
 Note that although the default translation table used is for bacteria, other translation tables can also be used for non-bacterial coding sequence databases by specifying a different genetic code. Refer to the usage details of the two tools below.
 
 ## Citation
-Chiu J.K.H., Ong R.T.H.; ARGDIT: A Validation and Integration Toolkit for Antimicrobial Resistance Gene Databases, Bioinformatics, bty987, https://doi.org/10.1093/bioinformatics/bty987
+Chiu, J.K.H. and Ong, R.T.H. ARGDIT: A Validation and Integration Toolkit for Antimicrobial Resistance Gene Databases. Bioinformatics 2019;35(14):2466-2474.
 
 ## Main tools
 * ARG database validation tool (check_arg_db.py)
