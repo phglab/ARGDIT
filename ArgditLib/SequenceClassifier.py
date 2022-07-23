@@ -1,5 +1,4 @@
 from .MultiSeqAlign import muscleAlign
-from Bio import AlignIO
 from Bio import SeqIO
 from multiprocessing import Pool
 import os
@@ -19,11 +18,8 @@ class SequenceClassifier:
     '''
     @staticmethod
     def create_hmm(class_label_protein_seq_record_tuple):
-        aligned_protein_seq_records = muscleAlign(class_label_protein_seq_record_tuple[1])
         protein_seq_align_file_path = os.path.join(tempfile.gettempdir(), class_label_protein_seq_record_tuple[0])
-        
-        with open(protein_seq_align_file_path, 'w') as f:
-            AlignIO.write(aligned_protein_seq_records, f, 'fasta')
+        muscleAlign(class_label_protein_seq_record_tuple[1], protein_seq_align_file_path)
 
         with tempfile.NamedTemporaryFile(delete = False) as ftemp:
             hmm_file_path = ftemp.name
@@ -76,13 +72,13 @@ class SequenceClassifier:
 
     '''Constructor to create compressed HMM database from the ARG protein sequences'''
     def __init__(self, seq_class_protein_seq_record_grps):
-        cpu_count = len(os.sched_getaffinity(0))
+        cpu_count = os.cpu_count()
 
         with Pool(cpu_count) as pool:
             hmm_file_paths = list(pool.imap_unordered(self.create_hmm, seq_class_protein_seq_record_grps.items()))
 
         pool.join()
-        
+
         self.hmm_db_file_path = self.create_compressed_hmm_db(hmm_file_paths)
 
     '''
@@ -124,7 +120,7 @@ class SequenceClassifier:
         with tempfile.NamedTemporaryFile(delete = False) as ftemp:
             hmm_scan_output_tbl_path = ftemp.name
 
-        cpu_count = len(os.sched_getaffinity(0))
+        cpu_count = os.cpu_count()
         subprocess_args = ['hmmscan', '--tblout', hmm_scan_output_tbl_path, '--cpu', str(cpu_count),
                            self.hmm_db_file_path, '-']
         child_process = subprocess.Popen(subprocess_args,
@@ -145,7 +141,7 @@ class SequenceClassifier:
     def __del__(self):
         hmm_db_file_basename = os.path.basename(self.hmm_db_file_path)
         temp_dir_path = tempfile.gettempdir()
-        
+
         for temp_file_name in os.listdir(temp_dir_path):
             temp_file_name_parts = temp_file_name.rpartition('.')
             if temp_file_name_parts[0] == hmm_db_file_basename:

@@ -1,6 +1,5 @@
 '''Module for sequence translation functions used by ARGDIT tools'''
 
-from Bio.Alphabet import generic_dna
 from Bio.Data import CodonTable
 from Bio.Seq import Seq
 from .CDSSeqSegment import CDSSeqSegment
@@ -20,7 +19,7 @@ class Translate:
     @staticmethod
     def generate_partial_codon_translate_map(translate_table):
         partial_codon_translate_map = dict()
-        all_nucleotides = translate_table.nucleotide_alphabet.letters
+        all_nucleotides = translate_table.nucleotide_alphabet
 
         for codon_nucleotide1 in all_nucleotides:
             for codon_nucleotide2 in all_nucleotides:
@@ -30,7 +29,7 @@ class Translate:
 
                 for codon_nucleotide3 in all_nucleotides:
                     codon = '{}{}'.format(partial_codon, codon_nucleotide3)
-                    codon_seq = Seq(codon, generic_dna)
+                    codon_seq = Seq(codon)
                     translated_aa = str(codon_seq.translate(table = translate_table))
 
                     if last_translated_aa is None:
@@ -88,7 +87,7 @@ class Translate:
 
         translate_end = translate_start + (cds_seq_segment.length - translate_start) // 3 * 3
 
-        cds_seq = Seq(cds_seq_segment.seq_str[translate_start:translate_end], generic_dna)
+        cds_seq = Seq(cds_seq_segment.seq_str[translate_start:translate_end])
 
         protein_seq_str = str(cds_seq.translate(table = cls._genetic_code, to_stop = False))
         if (not cds_seq_segment.is_5_partial and cds_seq_segment.seq_str[translate_start:3] in cls._start_codons) or \
@@ -167,7 +166,7 @@ class Translate:
     '''
     @classmethod
     def _translate_gene_seq(cls, gene_seq):
-        protein_seq_str = str(gene_seq.translate(table = cls._genetic_code, to_stop = True))    
+        protein_seq_str = str(gene_seq.translate(table = cls._genetic_code, to_stop = True))
         translate_outputs = [protein_seq_str]
 
         if str(gene_seq[0:3]) in cls._start_codons:
@@ -189,7 +188,7 @@ class Translate:
         full_seq_len = len(gene_seq_str)
         translate_lens = [full_seq_len // 3 * 3, (full_seq_len - 1) // 3 * 3, (full_seq_len - 2) // 3 * 3]
 
-        forward_seq = Seq(gene_seq_str, generic_dna)
+        forward_seq = Seq(gene_seq_str)
         rev_comp_seq = forward_seq.reverse_complement()
 
         for i in range(3):

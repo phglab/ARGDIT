@@ -11,7 +11,6 @@ from ArgditLib.RepositoryBuffer import RepositoryBuffer
 from ArgditLib.SequenceClassifier import SequenceClassifier
 from ArgditLib.SequenceFileParser import SequenceFileParser
 from ArgditLib.Translate import Translate
-from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 import argparse
@@ -36,7 +35,7 @@ def match_protein_cds_for_nt_id_nt_seq_rec(nt_id_nt_seq_records, seq_db_path, da
     (genbank_protein_info_set, candidate_cds_seq_segment_map, target_cds_region_grps,
      non_acc_fmt_protein_ids) = data_params
     latest_ver_nt_acc_num_map, matched_nt_non_ver_acc_nums = nt_acc_num_params
-    
+
     matched_protein_info_set = dict()
     matched_cds_region_set = dict()
 
@@ -85,7 +84,7 @@ def match_protein_cds_for_nt_id_protein_seq_rec(nt_id_protein_seq_records, seq_d
                                                 nt_acc_num_params, is_schema_db):
     genbank_protein_info_set, _, target_cds_region_grps, non_acc_fmt_protein_ids = data_params
     latest_ver_nt_acc_num_map, matched_nt_non_ver_acc_nums = nt_acc_num_params
-    
+
     matched_protein_info_set = dict()
     matched_cds_region_set = dict()
 
@@ -161,7 +160,7 @@ def match_protein_info_for_protein_id_nt_seq_rec(protein_id_nt_seq_records, seq_
             latest_ver_protein_acc_num = latest_ver_protein_acc_num_map[protein_non_ver_acc_num]
         else:
             latest_ver_protein_acc_num = None
-       
+
         for nt_seq_record in nt_seq_records:
             '''Translate the ARG nucleotide sequence and obtain products from all six frames'''
             translated_protein_seq_strs = Translate.translate(str(nt_seq_record.seq))
@@ -217,7 +216,7 @@ def match_protein_info_for_protein_id_protein_seq_rec(protein_id_protein_seq_rec
 
         for protein_seq_record in protein_seq_records:
             protein_seq_str = str(protein_seq_record.seq)
-        
+
             if latest_ver_protein_acc_num is not None:
                 genbank_protein_info = genbank_protein_info_set[latest_ver_protein_acc_num]
                 is_protein_seq_matched = (protein_seq_str == genbank_protein_info.seq_str)
@@ -373,7 +372,7 @@ def generate_genbank_seq_header(config, acc_num, matched_protein_info, matched_t
             coding_gene_short_name = Utils.rectify_gene_short_name(matched_protein_info.coding_gene_short_name)
 
         seq_header_template = '{}' * 11
-        
+
         return seq_header_template.format(acc_num, field_sep, coding_gene_short_name, field_sep, protein_name,
                                           field_sep, SEQ_VERSION_MARKUP, field_sep, organism_name,
                                           field_sep * 3, matched_protein_info.seq_completeness())
@@ -392,354 +391,357 @@ def generate_genbank_seq_header(config, acc_num, matched_protein_info, matched_t
                                           matched_target_cds_region.seq_completeness())
 
 '''Entry point of the main program'''
-parser = argparse.ArgumentParser()
-parser.add_argument('seq_db_paths', nargs = '+', help = 'nucleotide/protein database FASTA file paths')
-parser.add_argument('-o', '--output', action = 'store', dest = 'output_seq_db_path', required = True,
-                    help = 'output database file path')
-parser.add_argument('-s', '--schema', action = 'store', dest = 'seq_class_schema', nargs = 2,
-                    help = 'schema database and sequence class label field numbers for sequence classification')
-parser.add_argument('-a', '--annotate', action = 'store_true',
-                    help = 'automatic re-annotation using NCBI database information')
-parser.add_argument('-p', '--protein', action = 'store_true', help = 'export protein sequences')
-parser.add_argument('-r', '--redundant', action = 'store_true', help = 'allow redundant sequences')
-parser.add_argument('-c', '--geneticcode', action = 'store', type = int, dest = 'genetic_code',
-                    help = 'genetic code to specify which translation table to be used')
-parser.add_argument('-e', '--exportlog', action = 'store_true', help = 'export integration results and process log')
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('seq_db_paths', nargs = '+', help = 'nucleotide/protein database FASTA file paths')
+    parser.add_argument('-o', '--output', action = 'store', dest = 'output_seq_db_path', required = True,
+                        help = 'output database file path')
+    parser.add_argument('-s', '--schema', action = 'store', dest = 'seq_class_schema', nargs = 2,
+                        help = 'schema database and sequence class label field numbers for sequence classification')
+    parser.add_argument('-a', '--annotate', action = 'store_true',
+                        help = 'automatic re-annotation using NCBI database information')
+    parser.add_argument('-p', '--protein', action = 'store_true', help = 'export protein sequences')
+    parser.add_argument('-r', '--redundant', action = 'store_true', help = 'allow redundant sequences')
+    parser.add_argument('-c', '--geneticcode', action = 'store', type = int, dest = 'genetic_code',
+                        help = 'genetic code to specify which translation table to be used')
+    parser.add_argument('-e', '--exportlog', action = 'store_true', help = 'export integration results and process log')
 
-args = parser.parse_args()
+    args = parser.parse_args()
 
-ProcLog.init_logs()
+    ProcLog.init_logs()
 
-config = Config('config.ini')
+    config = Config('config.ini')
 
-for seq_db_path in args.seq_db_paths:
-    if not os.path.exists(seq_db_path):
-        ProcLog.log_exec_error('Database file \'{}\' does not exist'.format(seq_db_path))
+    for seq_db_path in args.seq_db_paths:
+        if not os.path.exists(seq_db_path):
+            ProcLog.log_exec_error('Database file \'{}\' does not exist'.format(seq_db_path))
 
-if args.genetic_code is None:
-    Translate.init(config.default_genetic_code)
-else:
-    Translate.init(args.genetic_code)
-
-schema_db_file_path = None
-if args.seq_class_schema is not None:
-    seq_class_label_field_nums = OptionParser.parse_seq_class_label_field_nums(args.seq_class_schema[1])
-
-    if os.path.exists(args.seq_class_schema[0]):
-        schema_db_file_path = args.seq_class_schema[0]
+    if args.genetic_code is None:
+        Translate.init(config.default_genetic_code)
     else:
-        ProcLog.log_exec_error('Schema database file \'{}\' does not exist'.format(args.seq_class_schema[0]))
+        Translate.init(args.genetic_code)
 
-if ProcLog.has_exec_error():
-    ProcLog.export_exec_error(sys.stdout)
-    sys.exit()
+    schema_db_file_path = None
+    if args.seq_class_schema is not None:
+        seq_class_label_field_nums = OptionParser.parse_seq_class_label_field_nums(args.seq_class_schema[1])
 
-db_seq_file_parsers = dict()
-source_db_seq_rec_count = 0
-
-for seq_db_path in args.seq_db_paths:
-    if seq_db_path not in db_seq_file_parsers:
-        seq_file_parser = SequenceFileParser()
-        seq_file_parser.parse(seq_db_path, is_ignore_acc_num_type = not args.annotate)
-        db_seq_file_parsers[seq_db_path] = seq_file_parser
-        source_db_seq_rec_count += seq_file_parser.get_seq_record_count()
-
-schema_db_seq_rec_count = 0
-
-if args.seq_class_schema is not None:
-    if schema_db_file_path in db_seq_file_parsers:
-        schema_db_file_parser = db_seq_file_parsers[schema_db_file_path]
-    else:
-        '''
-        If the ARG schema database is not one of the source ARG databases to be merged, then only its
-        nucleotide sequences require NCBI database query to perform translation, and so the sequence
-        file parser only parses these sequences
-        '''
-        schema_db_file_parser = SequenceFileParser()
-        schema_db_file_parser.parse_seq_class_schema_db(schema_db_file_path, is_nt_seq_only = True)
-        db_seq_file_parsers[schema_db_file_path] = schema_db_file_parser
-
-    schema_db_seq_rec_count += schema_db_file_parser.get_seq_record_count()
-
-global_cds_seq_len_filters = dict()
-db_class_candidate_cds_seq_segments = dict()
-query_protein_acc_nums = set()
-
-'''
-NCBI database query required only when auto-generation of ARG sequence header, conversion to protein
-sequences, or sequence annotation class is required
-'''
-if args.annotate or args.protein or args.seq_class_schema is not None:
-    '''
-    For ARG nucleotide and protein sequences with NCBI nucleotide accession numbers, predict the
-    lengths of their potential CDS sequences, and use these lengths as sequence length filters to
-    select target CDS regions; the predicted CDS sequences are also stored for ARG nucleotide
-    sequences
-    '''
-    for seq_db_path, seq_file_parser in db_seq_file_parsers.items():
-        nt_id_nt_seq_records = seq_file_parser.get_nt_id_nt_seq_records()
-
-        if args.annotate or args.seq_class_schema is not None:
-            nt_id_protein_seq_records = seq_file_parser.get_nt_id_protein_seq_records()
+        if os.path.exists(args.seq_class_schema[0]):
+            schema_db_file_path = args.seq_class_schema[0]
         else:
-            nt_id_protein_seq_records = dict()
-
-        if len(nt_id_nt_seq_records) > 0 or len(nt_id_protein_seq_records) > 0:
-            cds_seq_len_filters, candidate_cds_seq_segment_map = \
-                CDSPredict.predict_cds_regions(nt_id_nt_seq_records, nt_id_protein_seq_records)
-            for nt_non_ver_acc_num, candidate_cds_lens in cds_seq_len_filters.items():
-                Utils.add_to_group(global_cds_seq_len_filters, nt_non_ver_acc_num, candidate_cds_lens)
-
-            db_class_candidate_cds_seq_segments[seq_db_path] = candidate_cds_seq_segment_map
-
-        '''Add the protein accession numbers of the ARG sequences to the NCBI protein query'''
-        protein_id_nt_seq_records = seq_file_parser.get_protein_id_nt_seq_records()
-        if len(protein_id_nt_seq_records) > 0:
-            query_protein_acc_nums.update(map(Utils.trim_version, protein_id_nt_seq_records.keys()))
-
-        if args.annotate or args.seq_class_schema is not None:
-            protein_id_protein_seq_records = seq_file_parser.get_protein_id_protein_seq_records()
-            if len(protein_id_protein_seq_records) > 0:
-                query_protein_acc_nums.update(map(Utils.trim_version, protein_id_protein_seq_records.keys()))
-
-EntrezDBAccess.set_entrez_email(config.entrez_email)
-
-if len(global_cds_seq_len_filters) > 0:
-    print('Retrieving information from NCBI nucleotide database...')
-    '''
-    Target CDS regions contain potential CDS sequence matches, i.e. an ARG nucleotide/protein sequence
-    should come from one of the relevant target CDS regions
-    '''
-    target_cds_region_grps, target_cds_protein_acc_nums, is_parse_complete = \
-        EntrezDBAccess.search_target_cds_by_nt_acc_num(global_cds_seq_len_filters.keys(),
-                                                       global_cds_seq_len_filters)
-
-    if not is_parse_complete:
-        ProcLog.log_data_retrieval_error()
+            ProcLog.log_exec_error('Schema database file \'{}\' does not exist'.format(args.seq_class_schema[0]))
 
     if ProcLog.has_exec_error():
         ProcLog.export_exec_error(sys.stdout)
         sys.exit()
 
-    '''Add the protein accession numbers of the target CDS regions to the NCBI protein query'''
-    query_protein_acc_nums.update(target_cds_protein_acc_nums)
+    db_seq_file_parsers = dict()
+    source_db_seq_rec_count = 0
 
-    '''Keep the latest nucleotide accession version to determine potential obsolete sequences'''
-    latest_ver_nt_acc_num_map = dict()
-    for nt_acc_num in target_cds_region_grps.keys():
-        latest_ver_nt_acc_num_map[Utils.trim_version(nt_acc_num)] = nt_acc_num
+    for seq_db_path in args.seq_db_paths:
+        if seq_db_path not in db_seq_file_parsers:
+            seq_file_parser = SequenceFileParser()
+            seq_file_parser.parse(seq_db_path, is_ignore_acc_num_type = not args.annotate)
+            db_seq_file_parsers[seq_db_path] = seq_file_parser
+            source_db_seq_rec_count += seq_file_parser.get_seq_record_count()
 
-    '''Store (non-versioned) nucleotide accession numbers of the target CDS regions'''
-    matched_nt_non_ver_acc_nums = latest_ver_nt_acc_num_map.keys()
-else:
-    target_cds_region_grps = dict()
-    latest_ver_nt_acc_num_map = dict()
-    matched_nt_non_ver_acc_nums = set()
+    schema_db_seq_rec_count = 0
 
-'''
-Nucleotide accession number information includes latest nucleotide accession version and non-versioned
-accession numbers of the target CDS regions for the nucleotide sequences
-'''    
-nt_acc_num_params = latest_ver_nt_acc_num_map, matched_nt_non_ver_acc_nums
+    if args.seq_class_schema is not None:
+        if schema_db_file_path in db_seq_file_parsers:
+            schema_db_file_parser = db_seq_file_parsers[schema_db_file_path]
+        else:
+            '''
+            If the ARG schema database is not one of the source ARG databases to be merged, then only its
+            nucleotide sequences require NCBI database query to perform translation, and so the sequence
+            file parser only parses these sequences
+            '''
+            schema_db_file_parser = SequenceFileParser()
+            schema_db_file_parser.parse_seq_class_schema_db(schema_db_file_path, is_nt_seq_only = True)
+            db_seq_file_parsers[schema_db_file_path] = schema_db_file_parser
 
-if len(query_protein_acc_nums) > 0:
-    print('Retrieving information from NCBI protein database...')
-    genbank_protein_info_set = EntrezDBAccess.search_protein_info(query_protein_acc_nums)
-    
-    if ProcLog.has_exec_error():
-        ProcLog.export_exec_error(sys.stdout)
-        sys.exit()
+        schema_db_seq_rec_count += schema_db_file_parser.get_seq_record_count()
 
-    '''
-    It is possible that some retrieved records are identifed by non-accession format identifiers, hence
-    they need to be extracted for special matching
-    '''
-    non_acc_fmt_protein_ids = set(genbank_protein_info_set.keys()) - query_protein_acc_nums
-
-    '''Keep the latest protein accession version to determine potential obsolete sequences'''
-    latest_ver_protein_acc_num_map = dict()
-    for protein_acc_num in genbank_protein_info_set.keys():
-        latest_ver_protein_acc_num_map[Utils.trim_version(protein_acc_num)] = protein_acc_num
-
-    '''Store (non-versioned) protein accession numbers of the target CDS regions'''
-    matched_protein_non_ver_acc_nums = latest_ver_protein_acc_num_map.keys()
-else:
-    genbank_protein_info_set = dict()
-    non_acc_fmt_protein_ids = set()
-    latest_ver_protein_acc_num_map = dict()
-    matched_protein_non_ver_acc_nums = set()
-
-'''
-Protein accession number information includes latest protein accession version and non-versioned
-accession numbers of the target protein sequences
-'''
-protein_acc_num_params = latest_ver_protein_acc_num_map, matched_protein_non_ver_acc_nums
-
-'''Build the sequence classifier for the ARG schema database'''
-if args.seq_class_schema is not None:
-    if schema_db_file_path in db_class_candidate_cds_seq_segments:
-        candidate_cds_seq_segment_map = db_class_candidate_cds_seq_segments[schema_db_file_path]
-    else:
-        candidate_cds_seq_segment_map = dict()
+    global_cds_seq_len_filters = dict()
+    db_class_candidate_cds_seq_segments = dict()
+    query_protein_acc_nums = set()
 
     '''
-    Downloaded NCBI data includes protein sequences and their basic information (protein name, etc.),
-    candidate CDS sequences, target CDS regions, and non-accession format identifiers for protein
-    sequences
-    '''
-    data_params = (genbank_protein_info_set, candidate_cds_seq_segment_map, target_cds_region_grps,
-                   non_acc_fmt_protein_ids)
-
-    '''
-    Match the protein sequences (previously downloaded from the NCBI database) for the nucleotide
-    sequences in the ARG schema database to build the sequence classifier
-    '''
-    matched_protein_info_set, _ = match_protein_cds(schema_db_file_parser, schema_db_file_path, data_params,
-                                                    nt_acc_num_params, protein_acc_num_params, is_schema_db = True,
-                                                    is_nt_seq_only = True)
-
-    '''
-    If the schema DB file path is not in the sequence DB file paths, parse the schema file again to
-    recover the protein sequence records, which are omitted in the first parse to avoid unnecessary
-    GenBank query
-    '''
-    if schema_db_file_path not in args.seq_db_paths:
-        schema_db_file_parser.parse_seq_class_schema_db(schema_db_file_path)
-        for seq_header in schema_db_file_parser.get_invalid_acc_num_fmt_seq_rec_ids():
-            ProcLog.log_invalid_acc_num_fmt(msg = seq_header, db_name = schema_db_file_path, is_for_schema_db = True)
-
-        for seq_header in schema_db_file_parser.get_unknown_seq_type_seq_rec_ids():
-            ProcLog.log_unknown_seq_type(msg = seq_header, db_name = schema_db_file_path, is_for_schema_db = True)
-
-    seq_classifier, schema_seq_classes = build_seq_classifier(schema_db_file_parser, matched_protein_info_set,
-                                                              seq_class_label_field_nums, config)
-
-repos_buffer = RepositoryBuffer()
-merged_db_seq_headers = set()
-
-'''Process the ARG sequences in each source ARG database for export'''
-for seq_db_path in args.seq_db_paths:
-    seq_file_parser = db_seq_file_parsers[seq_db_path]
-
-    for seq_header in seq_file_parser.get_unknown_seq_type_seq_rec_ids():
-        ProcLog.log_unknown_seq_type(msg = seq_header, db_name = seq_db_path)
-
-    '''
-    Match the protein sequences (previously downloaded from the NCBI database) when auto-generation of
-    ARG sequence header, conversion to protein sequences, or sequence classification is required
+    NCBI database query required only when auto-generation of ARG sequence header, conversion to protein
+    sequences, or sequence annotation class is required
     '''
     if args.annotate or args.protein or args.seq_class_schema is not None:
-        if seq_db_path in db_class_candidate_cds_seq_segments:
-            candidate_cds_seq_segment_map = db_class_candidate_cds_seq_segments[seq_db_path]
+        '''
+        For ARG nucleotide and protein sequences with NCBI nucleotide accession numbers, predict the
+        lengths of their potential CDS sequences, and use these lengths as sequence length filters to
+        select target CDS regions; the predicted CDS sequences are also stored for ARG nucleotide
+        sequences
+        '''
+        for seq_db_path, seq_file_parser in db_seq_file_parsers.items():
+            nt_id_nt_seq_records = seq_file_parser.get_nt_id_nt_seq_records()
+
+            if args.annotate or args.seq_class_schema is not None:
+                nt_id_protein_seq_records = seq_file_parser.get_nt_id_protein_seq_records()
+            else:
+                nt_id_protein_seq_records = dict()
+
+            if len(nt_id_nt_seq_records) > 0 or len(nt_id_protein_seq_records) > 0:
+                cds_seq_len_filters, candidate_cds_seq_segment_map = \
+                    CDSPredict.predict_cds_regions(nt_id_nt_seq_records, nt_id_protein_seq_records)
+                for nt_non_ver_acc_num, candidate_cds_lens in cds_seq_len_filters.items():
+                    Utils.add_to_group(global_cds_seq_len_filters, nt_non_ver_acc_num, candidate_cds_lens)
+
+                db_class_candidate_cds_seq_segments[seq_db_path] = candidate_cds_seq_segment_map
+
+            '''Add the protein accession numbers of the ARG sequences to the NCBI protein query'''
+            protein_id_nt_seq_records = seq_file_parser.get_protein_id_nt_seq_records()
+            if len(protein_id_nt_seq_records) > 0:
+                query_protein_acc_nums.update(map(Utils.trim_version, protein_id_nt_seq_records.keys()))
+
+            if args.annotate or args.seq_class_schema is not None:
+                protein_id_protein_seq_records = seq_file_parser.get_protein_id_protein_seq_records()
+                if len(protein_id_protein_seq_records) > 0:
+                    query_protein_acc_nums.update(map(Utils.trim_version, protein_id_protein_seq_records.keys()))
+
+    EntrezDBAccess.set_entrez_email(config.entrez_email)
+
+    if len(global_cds_seq_len_filters) > 0:
+        print('Retrieving information from NCBI nucleotide database...')
+        '''
+        Target CDS regions contain potential CDS sequence matches, i.e. an ARG nucleotide/protein sequence
+        should come from one of the relevant target CDS regions
+        '''
+        target_cds_region_grps, target_cds_protein_acc_nums, is_parse_complete = \
+            EntrezDBAccess.search_target_cds_by_nt_acc_num(global_cds_seq_len_filters.keys(),
+                                                           global_cds_seq_len_filters)
+
+        if not is_parse_complete:
+            ProcLog.log_data_retrieval_error()
+
+        if ProcLog.has_exec_error():
+            ProcLog.export_exec_error(sys.stdout)
+            sys.exit()
+
+        '''Add the protein accession numbers of the target CDS regions to the NCBI protein query'''
+        query_protein_acc_nums.update(target_cds_protein_acc_nums)
+
+        '''Keep the latest nucleotide accession version to determine potential obsolete sequences'''
+        latest_ver_nt_acc_num_map = dict()
+        for nt_acc_num in target_cds_region_grps.keys():
+            latest_ver_nt_acc_num_map[Utils.trim_version(nt_acc_num)] = nt_acc_num
+
+        '''Store (non-versioned) nucleotide accession numbers of the target CDS regions'''
+        matched_nt_non_ver_acc_nums = latest_ver_nt_acc_num_map.keys()
+    else:
+        target_cds_region_grps = dict()
+        latest_ver_nt_acc_num_map = dict()
+        matched_nt_non_ver_acc_nums = set()
+
+    '''
+    Nucleotide accession number information includes latest nucleotide accession version and non-versioned
+    accession numbers of the target CDS regions for the nucleotide sequences
+    '''
+    nt_acc_num_params = latest_ver_nt_acc_num_map, matched_nt_non_ver_acc_nums
+
+    if len(query_protein_acc_nums) > 0:
+        print('Retrieving information from NCBI protein database...')
+        genbank_protein_info_set = EntrezDBAccess.search_protein_info(query_protein_acc_nums)
+
+        if ProcLog.has_exec_error():
+            ProcLog.export_exec_error(sys.stdout)
+            sys.exit()
+
+        '''
+        It is possible that some retrieved records are identifed by non-accession format identifiers, hence
+        they need to be extracted for special matching
+        '''
+        non_acc_fmt_protein_ids = set(genbank_protein_info_set.keys()) - query_protein_acc_nums
+
+        '''Keep the latest protein accession version to determine potential obsolete sequences'''
+        latest_ver_protein_acc_num_map = dict()
+        for protein_acc_num in genbank_protein_info_set.keys():
+            latest_ver_protein_acc_num_map[Utils.trim_version(protein_acc_num)] = protein_acc_num
+
+        '''Store (non-versioned) protein accession numbers of the target CDS regions'''
+        matched_protein_non_ver_acc_nums = latest_ver_protein_acc_num_map.keys()
+    else:
+        genbank_protein_info_set = dict()
+        non_acc_fmt_protein_ids = set()
+        latest_ver_protein_acc_num_map = dict()
+        matched_protein_non_ver_acc_nums = set()
+
+    '''
+    Protein accession number information includes latest protein accession version and non-versioned
+    accession numbers of the target protein sequences
+    '''
+    protein_acc_num_params = latest_ver_protein_acc_num_map, matched_protein_non_ver_acc_nums
+
+    '''Build the sequence classifier for the ARG schema database'''
+    if args.seq_class_schema is not None:
+        if schema_db_file_path in db_class_candidate_cds_seq_segments:
+            candidate_cds_seq_segment_map = db_class_candidate_cds_seq_segments[schema_db_file_path]
         else:
             candidate_cds_seq_segment_map = dict()
 
         '''
-        Downloaded NCBI data includes protein sequences and their basic information (protein name,
-        etc.), candidate CDS sequences, target CDS regions, and non-accession format identifiers for
-        protein sequences
+        Downloaded NCBI data includes protein sequences and their basic information (protein name, etc.),
+        candidate CDS sequences, target CDS regions, and non-accession format identifiers for protein
+        sequences
         '''
         data_params = (genbank_protein_info_set, candidate_cds_seq_segment_map, target_cds_region_grps,
                        non_acc_fmt_protein_ids)
+
         '''
         Match the protein sequences (previously downloaded from the NCBI database) for the nucleotide
-        sequences in the source ARG database for auto-generation of sequence headers, protein
-        sequence conversion, or sequence classification (except the schema database itself);
-        associated CDS regions also matched for sequence header auto-generation
+        sequences in the ARG schema database to build the sequence classifier
         '''
-        if args.annotate:
-            matched_protein_info_set, matched_cds_region_set = \
-                match_protein_cds(seq_file_parser, seq_db_path, data_params, nt_acc_num_params,
-                                  protein_acc_num_params)
-        elif args.protein or (args.seq_class_schema is not None and seq_db_path != schema_db_file_path):
-            matched_protein_info_set, _ = match_protein_cds(seq_file_parser, seq_db_path, data_params,
-                                                            nt_acc_num_params, protein_acc_num_params,
-                                                            is_nt_seq_only = True)
+        matched_protein_info_set, _ = match_protein_cds(schema_db_file_parser, schema_db_file_path, data_params,
+                                                        nt_acc_num_params, protein_acc_num_params, is_schema_db = True,
+                                                        is_nt_seq_only = True)
 
-        if args.seq_class_schema is not None and seq_db_path != schema_db_file_path:
-            seq_class_label_map = batch_classify(seq_classifier, seq_file_parser.get_nt_seq_record_list(),
-                                                 seq_file_parser.get_protein_seq_record_list(),
-                                                 matched_protein_info_set)
-        else:
-            seq_class_label_map = None
+        '''
+        If the schema DB file path is not in the sequence DB file paths, parse the schema file again to
+        recover the protein sequence records, which are omitted in the first parse to avoid unnecessary
+        GenBank query
+        '''
+        if schema_db_file_path not in args.seq_db_paths:
+            schema_db_file_parser.parse_seq_class_schema_db(schema_db_file_path)
+            for seq_header in schema_db_file_parser.get_invalid_acc_num_fmt_seq_rec_ids():
+                ProcLog.log_invalid_acc_num_fmt(msg = seq_header, db_name = schema_db_file_path,
+                                                is_for_schema_db = True)
 
-        for seq_header in seq_file_parser.get_invalid_acc_num_fmt_seq_rec_ids():
-            ProcLog.log_invalid_acc_num_fmt(msg = seq_header, db_name = seq_db_path)
+            for seq_header in schema_db_file_parser.get_unknown_seq_type_seq_rec_ids():
+                ProcLog.log_unknown_seq_type(msg = seq_header, db_name = schema_db_file_path, is_for_schema_db = True)
 
-    seq_record_groups = seq_file_parser.get_hybrid_seq_records()
+        seq_classifier, schema_seq_classes = build_seq_classifier(schema_db_file_parser, matched_protein_info_set,
+                                                                  seq_class_label_field_nums, config)
 
-    for seq_records in seq_record_groups.values():
-        for seq_record in seq_records:
-            '''Skip sequences without matched protein sequences and information'''
-            if (args.annotate or args.seq_class_schema is not None) and seq_record.id not in matched_protein_info_set:
-                continue
+    repos_buffer = RepositoryBuffer()
+    merged_db_seq_headers = set()
 
-            '''Perform sequence header auto-generation'''
-            if args.annotate:
-                matched_protein_info = matched_protein_info_set[seq_record.id]
+    '''Process the ARG sequences in each source ARG database for export'''
+    for seq_db_path in args.seq_db_paths:
+        seq_file_parser = db_seq_file_parsers[seq_db_path]
 
-                if Utils.check_acc_num_type(seq_record.id) == 'NT':
-                    nt_acc_num = Utils.extract_nt_acc_num(seq_record.id)
-                    matched_target_cds_region = matched_cds_region_set[seq_record.id]
-                    output_seq_header = generate_genbank_seq_header(config, nt_acc_num, matched_protein_info,
-                                                                    matched_target_cds_region)
-                else:
-                    protein_acc_num = Utils.extract_protein_acc_num(seq_record.id)
-                    output_seq_header = generate_genbank_seq_header(config, protein_acc_num, matched_protein_info)
+        for seq_header in seq_file_parser.get_unknown_seq_type_seq_rec_ids():
+            ProcLog.log_unknown_seq_type(msg = seq_header, db_name = seq_db_path)
+
+        '''
+        Match the protein sequences (previously downloaded from the NCBI database) when auto-generation of
+        ARG sequence header, conversion to protein sequences, or sequence classification is required
+        '''
+        if args.annotate or args.protein or args.seq_class_schema is not None:
+            if seq_db_path in db_class_candidate_cds_seq_segments:
+                candidate_cds_seq_segment_map = db_class_candidate_cds_seq_segments[seq_db_path]
             else:
-                output_seq_header = seq_record.description
+                candidate_cds_seq_segment_map = dict()
 
-            '''Convert nucleotide sequence to protein sequence for export'''
-            if args.protein and Utils.check_seq_type(str(seq_record.seq)) == 'NT':
-                if seq_record.id not in matched_protein_info_set:
+            '''
+            Downloaded NCBI data includes protein sequences and their basic information (protein name,
+            etc.), candidate CDS sequences, target CDS regions, and non-accession format identifiers for
+            protein sequences
+            '''
+            data_params = (genbank_protein_info_set, candidate_cds_seq_segment_map, target_cds_region_grps,
+                           non_acc_fmt_protein_ids)
+            '''
+            Match the protein sequences (previously downloaded from the NCBI database) for the nucleotide
+            sequences in the source ARG database for auto-generation of sequence headers, protein
+            sequence conversion, or sequence classification (except the schema database itself);
+            associated CDS regions also matched for sequence header auto-generation
+            '''
+            if args.annotate:
+                matched_protein_info_set, matched_cds_region_set = \
+                    match_protein_cds(seq_file_parser, seq_db_path, data_params, nt_acc_num_params,
+                                      protein_acc_num_params)
+            elif args.protein or (args.seq_class_schema is not None and seq_db_path != schema_db_file_path):
+                matched_protein_info_set, _ = match_protein_cds(seq_file_parser, seq_db_path, data_params,
+                                                                nt_acc_num_params, protein_acc_num_params,
+                                                                is_nt_seq_only = True)
+
+            if args.seq_class_schema is not None and seq_db_path != schema_db_file_path:
+                seq_class_label_map = batch_classify(seq_classifier, seq_file_parser.get_nt_seq_record_list(),
+                                                     seq_file_parser.get_protein_seq_record_list(),
+                                                     matched_protein_info_set)
+            else:
+                seq_class_label_map = None
+
+            for seq_header in seq_file_parser.get_invalid_acc_num_fmt_seq_rec_ids():
+                ProcLog.log_invalid_acc_num_fmt(msg = seq_header, db_name = seq_db_path)
+
+        seq_record_groups = seq_file_parser.get_hybrid_seq_records()
+
+        for seq_records in seq_record_groups.values():
+            for seq_record in seq_records:
+                '''Skip sequences without matched protein sequences and information'''
+                if (args.annotate or args.seq_class_schema is not None) and \
+                    seq_record.id not in matched_protein_info_set:
                     continue
 
-                matched_protein_info = matched_protein_info_set[seq_record.id]
-                export_seq = Seq(matched_protein_info.seq_str)
-            else:
-                export_seq = seq_record.seq
+                '''Perform sequence header auto-generation'''
+                if args.annotate:
+                    matched_protein_info = matched_protein_info_set[seq_record.id]
 
-            '''Perform sequence classification'''
-            if args.seq_class_schema is not None:
-                org_seq_class_label = Utils.extract_seq_class_by_fields(seq_record.id, seq_class_label_field_nums,
-                                                                        config.fasta_header_field_sep,
-                                                                        config.field_sep)
-                seq_class_label = None
-                if org_seq_class_label is not None and org_seq_class_label in schema_seq_classes:
-                    if args.annotate:
-                        seq_class_label = org_seq_class_label
-                else:
-                    if seq_record.id in seq_class_label_map:
-                        seq_class_label = seq_class_label_map[seq_record.id].replace(config.field_sep,
-                                                                                     config.fasta_header_field_sep)
+                    if Utils.check_acc_num_type(seq_record.id) == 'NT':
+                        nt_acc_num = Utils.extract_nt_acc_num(seq_record.id)
+                        matched_target_cds_region = matched_cds_region_set[seq_record.id]
+                        output_seq_header = generate_genbank_seq_header(config, nt_acc_num, matched_protein_info,
+                                                                        matched_target_cds_region)
                     else:
-                        seq_class_label = 'UNKNOWN_CLASS'
+                        protein_acc_num = Utils.extract_protein_acc_num(seq_record.id)
+                        output_seq_header = generate_genbank_seq_header(config, protein_acc_num, matched_protein_info)
+                else:
+                    output_seq_header = seq_record.description
 
-                if seq_class_label is not None:
-                    output_seq_header = '{}{}{}'.format(output_seq_header, config.fasta_header_field_sep,
-                                                        seq_class_label)
+                '''Convert nucleotide sequence to protein sequence for export'''
+                if args.protein and Utils.check_seq_type(str(seq_record.seq)) == 'NT':
+                    if seq_record.id not in matched_protein_info_set:
+                        continue
 
-            repos_buffer.add(SeqRecord(export_seq, id = output_seq_header, name = '', description = ''),
-                             seq_db_path, seq_record.description)
+                    matched_protein_info = matched_protein_info_set[seq_record.id]
+                    export_seq = Seq(matched_protein_info.seq_str)
+                else:
+                    export_seq = seq_record.seq
 
-export_seq_rec_count = repos_buffer.export(args.output_seq_db_path, not args.redundant)
+                '''Perform sequence classification'''
+                if args.seq_class_schema is not None:
+                    org_seq_class_label = Utils.extract_seq_class_by_fields(seq_record.id, seq_class_label_field_nums,
+                                                                            config.fasta_header_field_sep,
+                                                                            config.field_sep)
+                    seq_class_label = None
+                    if org_seq_class_label is not None and org_seq_class_label in schema_seq_classes:
+                        if args.annotate:
+                            seq_class_label = org_seq_class_label
+                    else:
+                        if seq_record.id in seq_class_label_map:
+                            seq_class_label = seq_class_label_map[seq_record.id].replace(config.field_sep,
+                                                                                         config.fasta_header_field_sep)
+                        else:
+                            seq_class_label = 'UNKNOWN_CLASS'
 
-if args.exportlog:
-    log_file_path = Utils.create_supp_file_path(args.output_seq_db_path, '.log')
-    output_stream = open(log_file_path, 'w')
-else:
-    output_stream = sys.stdout
+                    if seq_class_label is not None:
+                        output_seq_header = '{}{}{}'.format(output_seq_header, config.fasta_header_field_sep,
+                                                            seq_class_label)
 
-ProcLog.export_merge_db_check_logs(output_stream)
+                repos_buffer.add(SeqRecord(export_seq, id = output_seq_header, name = '', description = ''),
+                                 seq_db_path, seq_record.description)
 
-if export_seq_rec_count > 0:
-    output_db_stmt = ProcLog.create_summary_stmt(export_seq_rec_count,
-                                                 'exported to {}'.format(args.output_seq_db_path))
-else:
-    output_db_stmt = ProcLog.create_summary_stmt(export_seq_rec_count, 'exported')
+    export_seq_rec_count = repos_buffer.export(args.output_seq_db_path, not args.redundant)
 
-export_seq_summary = [output_db_stmt]
-ProcLog.export_merge_db_summary(output_stream, source_db_seq_rec_count, schema_db_seq_rec_count, export_seq_summary)
+    if args.exportlog:
+        log_file_path = Utils.create_supp_file_path(args.output_seq_db_path, '.log')
+        output_stream = open(log_file_path, 'w')
+    else:
+        output_stream = sys.stdout
 
-if args.exportlog:
-    output_stream.close()
+    ProcLog.export_merge_db_check_logs(output_stream)
+
+    if export_seq_rec_count > 0:
+        output_db_stmt = ProcLog.create_summary_stmt(export_seq_rec_count,
+                                                     'exported to {}'.format(args.output_seq_db_path))
+    else:
+        output_db_stmt = ProcLog.create_summary_stmt(export_seq_rec_count, 'exported')
+
+    export_seq_summary = [output_db_stmt]
+    ProcLog.export_merge_db_summary(output_stream, source_db_seq_rec_count, schema_db_seq_rec_count, export_seq_summary)
+
+    if args.exportlog:
+        output_stream.close()

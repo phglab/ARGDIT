@@ -45,7 +45,7 @@ class SequenceFileParser:
     def parse_seq_class_schema_db(self, seq_file_path, is_nt_seq_only = False):
         self._init_data()
 
-        with open(seq_file_path, 'rU') as f:
+        with open(seq_file_path, 'r') as f:
             for seq_record in SeqIO.parse(f, 'fasta'):
                 self._seq_record_count += 1
                 seq_record.id = seq_record.description.replace(' ', '_')
@@ -66,7 +66,7 @@ class SequenceFileParser:
                     self._invalid_acc_num_fmt_seq_rec_ids.append(seq_record.description)
                     continue
 
-                if acc_num_type == 'NT':            
+                if acc_num_type == 'NT':
                     nt_acc_num = Utils.extract_nt_acc_num(seq_record.id)
                     if seq_type == 'NT':
                         Utils.add_to_group(self._nt_id_nt_seq_records, nt_acc_num, seq_record)
@@ -103,7 +103,7 @@ class SequenceFileParser:
         validated_seq_headers = set()
         validated_seq_strs = dict()
 
-        with open(seq_file_path, 'rU') as f:
+        with open(seq_file_path, 'r') as f:
             for seq_record in SeqIO.parse(f, 'fasta'):
                 self._seq_record_count += 1
                 seq_record.id = seq_record.description.replace(' ', '_')
@@ -131,7 +131,7 @@ class SequenceFileParser:
                         self._invalid_acc_num_fmt_seq_rec_ids.append(seq_record.description)
                         continue
 
-                if acc_num_type == 'NT':            
+                if acc_num_type == 'NT':
                     nt_acc_num = Utils.extract_nt_acc_num(seq_record.id)
                     if seq_type == 'NT':
                         Utils.add_to_group(self._nt_id_nt_seq_records, nt_acc_num, seq_record)

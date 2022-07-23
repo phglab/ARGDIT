@@ -7,6 +7,13 @@ Note that although the default translation table used is for bacteria, other tra
 ## Citation
 Chiu, J.K.H. and Ong, R.T.H. ARGDIT: A Validation and Integration Toolkit for Antimicrobial Resistance Gene Databases. Bioinformatics 2019;35(14):2466-2474.
 
+## Release update
+- 2022-07-23:<br/>
+    - Replaced a Python library function that is not supported by Mac OS.
+    - Updated the NCBI accession number format.
+    - Updated the Python libraries and third-party tools used.
+    - Added the conda environment file for Linux and Mac OS (Intel-based Mac only).
+
 ## Main tools
 * ARG database validation tool (check_arg_db.py)
 * ARG database integration tool (merge_arg_db.py)
@@ -15,14 +22,6 @@ Chiu, J.K.H. and Ong, R.T.H. ARGDIT: A Validation and Integration Toolkit for An
 * Database sequence replacement utility (replace_db_seqs.py)
 * UniProt identifier to NCBI protein accession number conversion utility (convert_id_uniprot_to_ncbi.py)
 * Database diff utility (seq_db_diff.py)
-
-## Sample consolidated databases
-MEGARes [2] is a consolidated ARG database created from four ARG databases: ARG-ANNOT [3], CARD [4-6], ResFinder [7], and Lahey beta-lactamase archive [8] (NCBI BioProject PRJNA305729 [1]). However, its latest version was released in Dec 2016 since which its source databases have been updated. Therefore, to demonstrate the benefit of ARGDIT in highly automating the ARG database update process, a consolidated database that emsembles MEGARes database has been created from its sources. The source databases were first validated using ARGDIT validation tool, and were then corrected manually according to the validation results. The validated databases were then merged by ARGDIT integration tool into a single database, which was subsequently annotated using NCBI information [1]. The consolidated database is available in two versions:
-
-* argdit_nt_db.fa
-* argdit_nt_db_no_class.fa
-
-The annotations (i.e. sequence headers) of the first database include predicted (but unverified) ARG class labels defined by MEGARes and the second database does not include any sequence class information. Both versions can be found in the directory "sample_integrated_dbs".
 
 ## Database eligibility
 In order to use the data validation and integration tool, the ARG (or other coding/protein sequence) database must be
@@ -35,23 +34,72 @@ In order to use the data validation and integration tool, the ARG (or other codi
 ## Important notice
 All data retrieval of NCBI repositories are performed through NCBI Entrez Programming Utilities. Before using ARGDIT it is very important for every user to read its [guidelines and requirements](https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.Usage_Guidelines_and_Requiremen) and avoid overwhelming the NCBI servers according to the guidelines. Based on these requirements, users are required to provide their contact email addresses (see the Installation section) so that NCBI may attempt contact before **blocking the abusing access**. Although this email address is intended for the software developers, it is more appropriate for the users to fill in their own so that they can be notified by NCBI.
 
-## Pre-requisites
-The followings must be installed for the core ARGDIT operations:
-1. Python version 3.5 or higher
-2. BioPython version 1.70 or higher
+## Sample consolidated databases
+MEGARes [2] is a consolidated ARG database created from four ARG databases: ARG-ANNOT [3], CARD [4-6], ResFinder [7], and Lahey beta-lactamase archive [8] (NCBI BioProject PRJNA305729 [1]). However, its latest version was released in Dec 2016 since which its source databases have been updated. Therefore, to demonstrate the benefit of ARGDIT in highly automating the ARG database update process, a consolidated database that emsembles MEGARes database has been created from its sources. The source databases were first validated using ARGDIT validation tool, and were then corrected manually according to the validation results. The validated databases were then merged by ARGDIT integration tool into a single database, which was subsequently annotated using NCBI information [1]. The consolidated database is available in two versions:
 
-If sequence classification or class outlier sequence detection is required, then the followings must be installed:
-1. MUSCLE version 3.8.31 or higher ([Link](https://www.drive5.com/muscle/downloads.htm))
-2. OD-Seq ([Link](http://www.bioinf.ucd.ie/download/od-seq.tar.gz))
-3. HMMER3 version 3.1b2 or higher ([Link](http://hmmer.org/download.html))
+* argdit_nt_db.fa
+* argdit_nt_db_no_class.fa
+
+The annotations (i.e. sequence headers) of the first database include predicted (but unverified) ARG class labels defined by MEGARes and the second database does not include any sequence class information. Both versions can be found in the directory "sample_integrated_dbs".
 
 ## Installation
-No installation is required. Make sure all the third-party software in pre-requisites are in the system path.
+- **Method 1: conda**<br/>
+    Linux machine or Intel-based Mac (OSX) having [Miniconda](https://docs.conda.io/en/latest/miniconda.html) or [Anaconda](https://www.anaconda.com/) installed can set up a conda environment to run ARGDIT. Note that **ARM-based Mac is not supported.**<br/>
 
-In order to access the NCBI repositories, users must provide their own contact email addresses along with their access requests. Fill in your contact email address under the "Entrez" section in the configuration file (config.ini):
+    **Step 1:** After cloning ARGDIT to local drive, make sure the Python programs (tools and utilities) and installation shell scripts under the main directory are granted with execution permission. For example, to grant the current user with execution permission, run the following command:
+    > chmod u+x *.py *.sh
 
-[Entrez]
-Email = (your contact email address)
+    **Step 2:** Update conda to the latest version, e.g. for Miniconda it can be updated via terminal:
+    > conda update conda
+
+    **Step 3:** Create a new conda environment for ARGDIT execution using the environment file provided:<br/>
+    **Linux**:
+    > conda env create -n *\<environment name>* --file *\<path of argdit-conda-linux.yml>*
+
+    **OSX**:
+    > conda env create -n *\<environment name>* --file *\<path of argdit-conda-intel-osx.yml>*
+
+    The conda environment created will be named as *\<environment name>*. Users may name their own environments such as "argdit_env". The environment file is located under the root directory of ARGDIT.
+
+    **Step 4:** Activate the created conda environment by:
+    > conda activate *\<environment name>*
+
+    *\<environment name>* is the environment named in step 3.
+
+    **Step 5 (optional):** If sequence class outlier detection is required, run the installation script to install OD-seq under the **activated** conda environment:<br/>
+    **Linux:**
+    > ./conda-install-od-seq-linux.sh
+
+    **OSX:**
+    > ./conda-install-od-seq-intel-osx.sh
+
+    Use the following command to verify the installation:
+    > which OD-seq
+
+    If the installation completes successfully then the location of OD-seq will be shown.
+
+    **Step 6:**
+    In order to access the NCBI repositories, users must provide their own contact email addresses along with their access requests. Fill in your contact email address under the "Entrez" section in the configuration file (config.ini):
+
+    **[Entrez]**<br/>
+    **Email =** (your contact email address)
+
+    **Step 7:** To deactivate (exit) the conda environment, run the following command:
+    > conda deactivate
+
+- **Method 2: Direct execution in host**<br/>
+    **Step 1**: The followings must be installed for the core ARGDIT operations. The version tested is indicated in parentheses.
+    1. Python (3.10.5)
+    2. BioPython (1.79)
+
+    If sequence classification or class outlier sequence detection is required, then the followings must also be installed. The version tested is indicated in parentheses. Make sure they are available via the path indicated in variable $PATH.
+    1. MUSCLE (v5) [Link](https://drive5.com/muscle5/)
+    2. OD-Seq [Link](http://www.bioinf.ucd.ie/download/od-seq.tar.gz)
+    3. HMMER3 (3.3.2) [Link](http://hmmer.org/download.html)
+
+    **Step 2:** Perform **Step 1** in **Method 1**.
+
+    **Step 3:** Perform **Step 6** in **Method 1**.
 
 ## Usage
 ### **Database validation tool**
@@ -170,14 +218,12 @@ This utility compares the sequence database with its previous version according 
 ## Known issues
 It is sometimes (but not often) possible to have incomplete data retrieval from NCBI repositories due to server-side issues such as heavy workload. This means information for some nucleotide/protein accession numbers cannot be retrieved at the moment; the outcome is like these accession numbers are not present in the NCBI repositories. When many sequences are spuriously reported as having their accession numbers not found and/or sequence mismatches, it is advised to try using the database validation and the integration tools later.
 
-As a workaround, try to reduce the number of accession no. included in each NCBI repository query request. By default each query request consists of at most 3000 unique accession no., and this setting can be adjusted by modifying both constants EPOST_FT_BATCH_SIZE and EPOST_SEQ_BATCH_SIZE in the library script EntrezDBAccess.py (in folder ArgditLib) to lower values such as 500 or 1000 (default is 3000). Note that this workaround may not be effective all the time.
-
 ## References
-[1] NCBI Resource Coordinators. Database Resources of the National Center for Biotechnology Information. Nucleic Acids Research 2017;45(D1):D12-D17.  
-[2] Lakin, S.M., et al. MEGARes: an antimicrobial resistance database for high throughput sequencing. Nucleic Acids Research 2017;45(D1):D574-D580.  
-[3] Gupta, S.K., et al. ARG-ANNOT, a New Bioinformatic Tool To Discover Antibiotic Resistance Genes in Bacterial Genomes. Antimicrobial Agents and Chemotherapy 2014;58(1):212-220.  
-[4] Jia, B., et al. CARD 2017: expansion and model-centric curation of the comprehensive antibiotic resistance database. Nucleic Acids Research 2017;45(D1):D566-D573.  
-[5] McArthur, A.G., et al. The Comprehensive Antibiotic Resistance Database. Antimicrobial Agents and Chemotherapy 2013;57(7):3348-3357.  
-[6] McArthur, A.G. and Wright, G.D. Bioinformatics of antimicrobial resistance in the age of molecular epidemiology. Current Opinion in Microbiology 2015;27(Supplement C):45-50.  
-[7] Zankari, E., et al. Identification of acquired antimicrobial resistance genes. Journal of Antimicrobial Chemotherapy 2012;67(11):2640-2644.  
-[8] Bush, K. and Jacoby, G.A. Updated Functional Classification of β-Lactamases. Antimicrobial Agents and Chemotherapy 2010;54(3):969-976.
+[1] NCBI Resource Coordinators. Database Resources of the National Center for Biotechnology Information. Nucleic Acids Research 2017;45(D1):D12-D17.<br/>
+[2] Lakin, S.M., et al. MEGARes: an antimicrobial resistance database for high throughput sequencing. Nucleic Acids Research 2017;45(D1):D574-D580.<br/>
+[3] Gupta, S.K., et al. ARG-ANNOT, a New Bioinformatic Tool To Discover Antibiotic Resistance Genes in Bacterial Genomes. Antimicrobial Agents and Chemotherapy 2014;58(1):212-220.<br/>
+[4] Jia, B., et al. CARD 2017: expansion and model-centric curation of the comprehensive antibiotic resistance database. Nucleic Acids Research 2017;45(D1):D566-D573.<br/>
+[5] McArthur, A.G., et al. The Comprehensive Antibiotic Resistance Database. Antimicrobial Agents and Chemotherapy 2013;57(7):3348-3357.<br/>
+[6] McArthur, A.G. and Wright, G.D. Bioinformatics of antimicrobial resistance in the age of molecular epidemiology. Current Opinion in Microbiology 2015;27(Supplement C):45-50.<br/>
+[7] Zankari, E., et al. Identification of acquired antimicrobial resistance genes. Journal of Antimicrobial Chemotherapy 2012;67(11):2640-2644.<br/>
+[8] Bush, K. and Jacoby, G.A. Updated Functional Classification of β-Lactamases. Antimicrobial Agents and Chemotherapy 2010;54(3):969-976.<br/>
