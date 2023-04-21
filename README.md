@@ -8,6 +8,9 @@ Note that although the default translation table used is for bacteria, other tra
 Chiu, J.K.H. and Ong, R.T.H. ARGDIT: A Validation and Integration Toolkit for Antimicrobial Resistance Gene Databases. Bioinformatics 2019;35(14):2466-2474.
 
 ## Release update
+- 2023-04-22:<br/>
+    - Fixed the incorrect source code folder name in the OD-seq installation scripts so that the compiled tool can be moved to the specific location.
+
 - 2022-07-23:<br/>
     - Replaced a Python library function that is not supported by Mac OS.
     - Updated the NCBI accession number format.
