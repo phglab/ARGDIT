@@ -38,9 +38,9 @@ clang++ -fopenmp -o OD-seq \
 cd ..
 
 if [[ $target_path == '' ]]; then
-    mv OD-seq-src/OD-seq .
+    mv OD-Seq-src/OD-seq .
 else
-    mv OD-seq-src/OD-seq $target_path
+    mv OD-Seq-src/OD-seq $target_path
 fi
 
 rm -R OD-Seq-src
